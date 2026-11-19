@@ -1,0 +1,224 @@
+<div class="min-h-dvh bg-background flex">
+  <!-- Sidebar Desktop -->
+  <aside
+    class="hidden lg:flex lg:w-64 lg:shrink-0 lg:flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border"
+    aria-label="Navegación principal"
+  >
+    <div class="h-14 px-4 flex items-center gap-2.5 border-b border-sidebar-border shrink-0">
+      <div
+        class="size-8 rounded-md bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center shrink-0"
+      >
+        <ng-icon name="lucideBuilding2" class="text-base" />
+      </div>
+      <div class="min-w-0">
+        <p class="text-sm font-semibold truncate">Importadora B2B</p>
+        <p class="text-xs text-muted-foreground truncate">Operaciones e Inventario</p>
+      </div>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-5">
+      @for (group of navSections(); track group.section) {
+        <div class="flex flex-col gap-1">
+          <p class="px-2.5 pb-1 text-xs font-medium text-muted-foreground">
+            {{ group.section }}
+          </p>
+          @for (item of group.items; track item.id) {
+            @if (item.inactive || !item.route) {
+              <div
+                aria-disabled="true"
+                class="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted-foreground/55 cursor-default select-none"
+              >
+                <ng-icon [name]="item.icon" class="text-base shrink-0" />
+                <span class="truncate">{{ item.label }}</span>
+              </div>
+            } @else {
+              <a
+                [routerLink]="item.route"
+                routerLinkActive="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                class="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-sidebar-foreground/85 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground transition-colors"
+              >
+                <ng-icon [name]="item.icon" class="text-base shrink-0" />
+                <span class="truncate">{{ item.label }}</span>
+              </a>
+            }
+          }
+        </div>
+      }
+    </nav>
+
+    <div class="p-3 border-t border-sidebar-border shrink-0">
+      <button
+        type="button"
+        hlmBtn
+        variant="ghost"
+        class="w-full justify-start text-muted-foreground hover:text-destructive"
+        (click)="requestLogout()"
+      >
+        <ng-icon name="lucideLogOut" />
+        <span>Cerrar sesión</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Sheet Navegación Móvil -->
+  <hlm-sheet
+    side="left"
+    [state]="mobileMenuOpen() ? 'open' : 'closed'"
+    (closed)="closeMobileMenu()"
+  >
+    <hlm-sheet-content
+      *hlmSheetPortal
+      class="w-72 p-0 flex flex-col bg-sidebar text-sidebar-foreground"
+    >
+      <hlm-sheet-header class="px-4 py-3 border-b border-sidebar-border text-left">
+        <h3 hlmSheetTitle class="flex items-center gap-2 text-sm font-semibold">
+          <ng-icon name="lucideBuilding2" class="text-base text-primary" />
+          <span>Importadora B2B</span>
+        </h3>
+        <p hlmSheetDescription class="text-xs">Navegación por módulos autorizados</p>
+      </hlm-sheet-header>
+
+      <nav class="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-5" aria-label="Menú móvil">
+        @for (group of navSections(); track group.section) {
+          <div class="flex flex-col gap-1">
+            <p class="px-2.5 pb-1 text-xs font-medium text-muted-foreground">
+              {{ group.section }}
+            </p>
+            @for (item of group.items; track item.id) {
+              @if (item.inactive || !item.route) {
+                <div
+                  aria-disabled="true"
+                  class="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted-foreground/55 cursor-default select-none"
+                >
+                  <ng-icon [name]="item.icon" class="text-base shrink-0" />
+                  <span class="truncate">{{ item.label }}</span>
+                </div>
+              } @else {
+                <a
+                  [routerLink]="item.route"
+                  routerLinkActive="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                  (click)="closeMobileMenu()"
+                  class="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-sidebar-foreground/85 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground transition-colors"
+                >
+                  <ng-icon [name]="item.icon" class="text-base shrink-0" />
+                  <span class="truncate">{{ item.label }}</span>
+                </a>
+              }
+            }
+          </div>
+        }
+      </nav>
+
+      <div class="p-3 border-t border-sidebar-border">
+        <button
+          type="button"
+          hlmBtn
+          variant="ghost"
+          class="w-full justify-start text-muted-foreground hover:text-destructive"
+          (click)="closeMobileMenu(); requestLogout()"
+        >
+          <ng-icon name="lucideLogOut" />
+          <span>Cerrar sesión</span>
+        </button>
+      </div>
+    </hlm-sheet-content>
+  </hlm-sheet>
+
+  <!-- Contenido principal -->
+  <div class="flex-1 min-w-0 flex flex-col">
+    <header
+      class="h-14 bg-card border-b border-border px-4 sm:px-6 flex items-center justify-between gap-4 shrink-0 sticky top-0 z-20"
+    >
+      <div class="flex items-center gap-3 min-w-0">
+        <button
+          type="button"
+          hlmBtn
+          variant="outline"
+          size="icon"
+          class="lg:hidden shrink-0"
+          aria-label="Abrir menú de navegación"
+          (click)="mobileMenuOpen.set(true)"
+        >
+          <ng-icon name="lucideMenu" />
+        </button>
+        <p class="text-sm font-semibold text-foreground truncate">{{ activePageTitle() }}</p>
+      </div>
+
+      @if (authService.user(); as currentUser) {
+        <div class="flex items-center gap-3 shrink-0">
+          <div class="hidden sm:flex flex-col items-end leading-tight">
+            <span class="text-sm font-medium text-foreground">
+              {{ currentUser.nombre_completo }}
+            </span>
+            <span class="text-xs text-muted-foreground">{{ currentUser.rol }}</span>
+          </div>
+          <span hlmBadge variant="secondary" class="sm:hidden">{{ currentUser.rol }}</span>
+
+          <a
+            routerLink="/account"
+            aria-label="Ver perfil operativo"
+            class="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <hlm-avatar class="size-8 border border-border">
+              <span hlmAvatarFallback class="text-xs font-semibold bg-primary/10 text-primary">
+                {{ userInitials() }}
+              </span>
+            </hlm-avatar>
+          </a>
+
+          <hlm-separator orientation="vertical" class="h-5 hidden sm:block" />
+
+          <button
+            type="button"
+            hlmBtn
+            variant="ghost"
+            size="sm"
+            class="hidden sm:inline-flex text-muted-foreground hover:text-destructive"
+            (click)="requestLogout()"
+          >
+            <ng-icon name="lucideLogOut" />
+            <span>Salir</span>
+          </button>
+        </div>
+      }
+    </header>
+
+    <main class="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto">
+      <router-outlet />
+    </main>
+  </div>
+</div>
+
+<!-- Confirmación de cierre de sesión -->
+<hlm-alert-dialog
+  [state]="logoutConfirmOpen() ? 'open' : 'closed'"
+  (closed)="cancelLogout()"
+>
+  <hlm-alert-dialog-content *hlmAlertDialogPortal>
+    <hlm-alert-dialog-header>
+      <h3 hlmAlertDialogTitle>¿Cerrar sesión operativa?</h3>
+      <p hlmAlertDialogDescription>
+        Se finalizará su sesión actual y deberá ingresar sus credenciales nuevamente para operar.
+      </p>
+    </hlm-alert-dialog-header>
+    <hlm-alert-dialog-footer>
+      <button
+        type="button"
+        hlmAlertDialogCancel
+        [disabled]="loggingOut()"
+        (click)="cancelLogout()"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        hlmAlertDialogAction
+        variant="destructive"
+        [disabled]="loggingOut()"
+        (click)="confirmLogout()"
+      >
+        {{ loggingOut() ? 'Cerrando...' : 'Cerrar sesión' }}
+      </button>
+    </hlm-alert-dialog-footer>
+  </hlm-alert-dialog-content>
+</hlm-alert-dialog>

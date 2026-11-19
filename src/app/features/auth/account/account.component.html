@@ -1,0 +1,124 @@
+@if (authService.user(); as currentUser) {
+  <div class="flex flex-col gap-6 max-w-4xl">
+    <div>
+      <h1 class="text-xl font-semibold text-foreground tracking-tight">Perfil Operativo</h1>
+      <p class="text-sm text-muted-foreground">
+        Información de su cuenta autenticada, rol asignado y datos operativos vinculados.
+      </p>
+    </div>
+
+    <section hlmCard>
+      <div hlmCardHeader class="flex flex-row items-start justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div
+            class="size-11 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"
+          >
+            <ng-icon name="lucideUser" class="text-xl" />
+          </div>
+          <div>
+            <h2 hlmCardTitle class="text-base font-semibold">{{ currentUser.nombre_completo }}</h2>
+            <p hlmCardDescription class="flex items-center gap-1.5 mt-0.5">
+              <ng-icon name="lucideMail" class="text-xs" />
+              <span>{{ currentUser.email }}</span>
+            </p>
+          </div>
+        </div>
+        <span
+          hlmBadge
+          [variant]="currentUser.activo ? 'default' : 'destructive'"
+          class="shrink-0"
+        >
+          {{ currentUser.activo ? 'Cuenta Activa' : 'Cuenta Inactiva' }}
+        </span>
+      </div>
+
+      <hlm-separator />
+
+      <div hlmCardContent class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+        <div class="flex flex-col gap-1">
+          <span class="text-xs font-medium text-muted-foreground">Rol operativo</span>
+          <div class="flex items-center gap-2 text-sm font-medium text-foreground">
+            <ng-icon name="lucideShieldCheck" class="text-base text-primary" />
+            <span>{{ currentUser.rol }}</span>
+          </div>
+        </div>
+        <div class="flex flex-col gap-1">
+          <span class="text-xs font-medium text-muted-foreground">Identificador de usuario</span>
+          <span class="text-xs font-mono text-foreground tabular-nums break-all">
+            {{ currentUser.id_usuario }}
+          </span>
+        </div>
+      </div>
+    </section>
+
+    @if (authService.empresaCliente(); as empresa) {
+      <section hlmCard>
+        <div hlmCardHeader>
+          <div class="flex items-center gap-2">
+            <ng-icon name="lucideBriefcase" class="text-base text-primary" />
+            <h2 hlmCardTitle class="text-base font-semibold">Datos de Empresa Cliente</h2>
+          </div>
+          <p hlmCardDescription>Información fiscal y dirección registrada para entregas.</p>
+        </div>
+        <div hlmCardContent class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="flex flex-col gap-1">
+            <span class="text-xs font-medium text-muted-foreground">Razón social</span>
+            <span class="text-sm font-medium text-foreground">{{ empresa.razon_social }}</span>
+          </div>
+          <div class="flex flex-col gap-1">
+            <span class="text-xs font-medium text-muted-foreground">NIT</span>
+            <span class="text-sm font-medium text-foreground tabular-nums">{{ empresa.nit }}</span>
+          </div>
+          <div class="flex flex-col gap-1">
+            <span class="text-xs font-medium text-muted-foreground">Teléfono</span>
+            <span class="text-sm text-foreground flex items-center gap-1.5 tabular-nums">
+              <ng-icon name="lucidePhone" class="text-xs text-muted-foreground" />
+              {{ empresa.telefono }}
+            </span>
+          </div>
+          <div class="flex flex-col gap-1">
+            <span class="text-xs font-medium text-muted-foreground">Dirección de entrega</span>
+            <span class="text-sm text-foreground flex items-center gap-1.5">
+              <ng-icon name="lucideMapPin" class="text-xs text-muted-foreground shrink-0" />
+              {{ empresa.direccion_entrega }}
+            </span>
+          </div>
+        </div>
+      </section>
+    }
+
+    @if (authService.camion(); as camion) {
+      <section hlmCard>
+        <div hlmCardHeader>
+          <div class="flex items-center gap-2">
+            <ng-icon name="lucideTruck" class="text-base text-primary" />
+            <h2 hlmCardTitle class="text-base font-semibold">Vehículo Asignado</h2>
+          </div>
+          <p hlmCardDescription>Unidad de transporte vinculada al operador.</p>
+        </div>
+        <div hlmCardContent class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="flex flex-col gap-1">
+            <span class="text-xs font-medium text-muted-foreground">Placa</span>
+            <span class="text-sm font-semibold text-foreground tabular-nums">
+              {{ camion.placa }}
+            </span>
+          </div>
+          <div class="flex flex-col gap-1">
+            <span class="text-xs font-medium text-muted-foreground">Capacidad máxima</span>
+            <span class="text-sm font-medium text-foreground tabular-nums">
+              {{ camion.capacidad_kg }} kg
+            </span>
+          </div>
+          <div class="flex flex-col gap-1">
+            <span class="text-xs font-medium text-muted-foreground">Disponibilidad</span>
+            <div>
+              <span hlmBadge [variant]="camion.disponible ? 'default' : 'secondary'">
+                {{ camion.disponible ? 'Disponible' : 'Ocupado' }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+    }
+  </div>
+}

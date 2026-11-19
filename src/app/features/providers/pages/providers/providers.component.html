@@ -1,0 +1,320 @@
+<div class="flex flex-col gap-6">
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold text-foreground tracking-tight">
+        Directorio de Proveedores
+      </h1>
+      <p class="text-sm text-muted-foreground">
+        Administre proveedores nacionales e internacionales autorizados para recepción en almacén.
+      </p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        hlmBtn
+        variant="outline"
+        [disabled]="loading()"
+        (click)="reportOpen.set(true)"
+      >
+        <ng-icon name="lucideFileBarChart2" />
+        <span>Generar Reporte</span>
+      </button>
+      <button type="button" hlmBtn (click)="openCreateDialog()">
+        <ng-icon name="lucidePlus" />
+        <span>Nuevo Proveedor</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div
+    class="rounded-lg border border-border bg-card p-4 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3"
+  >
+    <div class="relative flex-1 max-w-md">
+      <ng-icon
+        name="lucideSearch"
+        class="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base"
+      />
+      <input
+        hlmInput
+        type="text"
+        [value]="searchTerm()"
+        (input)="onSearch($any($event.target).value)"
+        placeholder="Buscar por identificación fiscal, razón social o contacto..."
+        aria-label="Buscar proveedor"
+        class="pl-9"
+      />
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <hlm-native-select
+        [value]="statusFilter()"
+        (valueChange)="onStatusFilterChange($event)"
+        aria-label="Filtrar por estado"
+      >
+        <option hlmNativeSelectOption value="all">Todos los estados</option>
+        <option hlmNativeSelectOption value="active">Activos</option>
+        <option hlmNativeSelectOption value="inactive">Inactivos</option>
+      </hlm-native-select>
+
+      <hlm-native-select
+        [value]="countryFilter()"
+        (valueChange)="onCountryFilterChange($event)"
+        aria-label="Filtrar por país"
+      >
+        <option hlmNativeSelectOption value="all">Todos los países</option>
+        @for (country of distinctCountries(); track country) {
+          <option hlmNativeSelectOption [value]="country">{{ country }}</option>
+        }
+      </hlm-native-select>
+
+      <button
+        type="button"
+        hlmBtn
+        variant="ghost"
+        size="icon"
+        (click)="loadItems()"
+        aria-label="Actualizar proveedores"
+      >
+        <ng-icon name="lucideRefreshCw" />
+      </button>
+    </div>
+  </div>
+
+  @if (error()) {
+    <div hlmAlert variant="destructive">
+      <h3 hlmAlertTitle>Error de carga</h3>
+      <p hlmAlertDescription>{{ error() }}</p>
+    </div>
+  }
+
+  <section class="rounded-lg border border-border bg-card p-4 flex flex-col gap-4">
+    @if (loading()) {
+      <div class="flex flex-col gap-3">
+        @for (row of [1, 2, 3, 4, 5]; track row) {
+          <hlm-skeleton class="h-11 w-full rounded-md" />
+        }
+      </div>
+    } @else if (filteredItems().length === 0) {
+      <div hlmEmpty class="py-12">
+        <div hlmEmptyHeader>
+          <div hlmEmptyMedia variant="icon">
+            <ng-icon name="lucideBuilding2" />
+          </div>
+          <h3 hlmEmptyTitle>Sin proveedores registrados</h3>
+          <p hlmEmptyDescription>
+            Modifique los filtros aplicados o registre un nuevo proveedor en el directorio.
+          </p>
+        </div>
+      </div>
+    } @else {
+      <div hlmTableContainer>
+        <table hlmTable>
+          <thead hlmTHead>
+            <tr hlmTr>
+              <th hlmTh>Identificación Fiscal</th>
+              <th hlmTh>Razón Social</th>
+              <th hlmTh>País de Origen</th>
+              <th hlmTh>Datos de Contacto</th>
+              <th hlmTh>Estado</th>
+              <th hlmTh class="text-end">Acciones</th>
+            </tr>
+          </thead>
+          <tbody hlmTBody>
+            @for (item of paginatedItems(); track item.id_proveedor) {
+              <tr hlmTr>
+                <td hlmTd class="font-mono text-xs font-semibold text-foreground tabular-nums">
+                  {{ item.identificacion_fiscal }}
+                </td>
+                <td hlmTd class="font-medium text-foreground">{{ item.razon_social }}</td>
+                <td hlmTd class="text-muted-foreground">{{ item.pais_origen }}</td>
+                <td hlmTd class="max-w-xs truncate text-muted-foreground">
+                  {{ item.datos_contacto }}
+                </td>
+                <td hlmTd>
+                  <app-status-badge
+                    [status]="item.activo ? 'Activo' : 'Inactivo'"
+                    kind="boolean"
+                  />
+                </td>
+                <td hlmTd class="text-end">
+                  <div class="inline-flex items-center gap-1">
+                    <button
+                      type="button"
+                      hlmBtn
+                      variant="ghost"
+                      size="sm"
+                      (click)="openEditDialog(item)"
+                    >
+                      <ng-icon name="lucidePencil" />
+                      <span>Editar</span>
+                    </button>
+                    <button
+                      type="button"
+                      hlmBtn
+                      [variant]="item.activo ? 'destructive' : 'outline'"
+                      size="sm"
+                      (click)="requestToggleActive(item)"
+                    >
+                      <ng-icon name="lucidePower" />
+                      <span>{{ item.activo ? 'Desactivar' : 'Activar' }}</span>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <app-table-pagination
+        [totalItems]="filteredItems().length"
+        [page]="page()"
+        [pageSize]="pageSize()"
+        (pageChange)="page.set($event)"
+        (pageSizeChange)="pageSize.set($event); page.set(1)"
+      />
+    }
+  </section>
+</div>
+
+<!-- Dialog CRUD Proveedor -->
+<hlm-dialog [state]="dialogOpen() ? 'open' : 'closed'" (closed)="closeDialog()">
+  <hlm-dialog-content *hlmDialogPortal class="sm:max-w-lg">
+    <hlm-dialog-header>
+      <h3 hlmDialogTitle>
+        {{ editingItem() ? 'Editar Proveedor' : 'Registrar Proveedor' }}
+      </h3>
+      <p hlmDialogDescription>
+        Complete la ficha fiscal y de contacto del proveedor.
+      </p>
+    </hlm-dialog-header>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="flex flex-col gap-4 pt-2">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div hlmField>
+          <label hlmFieldLabel for="prov-id">Identificación fiscal / NIT</label>
+          <input
+            hlmInput
+            id="prov-id"
+            formControlName="identificacion_fiscal"
+            placeholder="900123456-7"
+            class="font-mono uppercase"
+          />
+          @if (form.controls.identificacion_fiscal.hasError('required')) {
+            <hlm-field-error validator="required">
+              La identificación fiscal es obligatoria.
+            </hlm-field-error>
+          }
+          @if (form.controls.identificacion_fiscal.hasError('nitFormat')) {
+            <hlm-field-error validator="nitFormat">
+              Ingrese un formato alfanumérico válido (5-20 caracteres).
+            </hlm-field-error>
+          }
+        </div>
+
+        <div hlmField>
+          <label hlmFieldLabel for="prov-pais">País de origen</label>
+          <input
+            hlmInput
+            id="prov-pais"
+            formControlName="pais_origen"
+            placeholder="Bolivia / Brasil / Alemania"
+          />
+          @if (form.controls.pais_origen.hasError('required')) {
+            <hlm-field-error validator="required">
+              El país de origen es obligatorio.
+            </hlm-field-error>
+          }
+          @if (form.controls.pais_origen.hasError('minlength')) {
+            <hlm-field-error validator="minlength">Mínimo 2 caracteres.</hlm-field-error>
+          }
+        </div>
+      </div>
+
+      <div hlmField>
+        <label hlmFieldLabel for="prov-razon">Razón social</label>
+        <input
+          hlmInput
+          id="prov-razon"
+          formControlName="razon_social"
+          placeholder="Química Industrial del Sur S.A."
+        />
+        @if (form.controls.razon_social.hasError('required')) {
+          <hlm-field-error validator="required">La razón social es obligatoria.</hlm-field-error>
+        }
+        @if (form.controls.razon_social.hasError('minlength')) {
+          <hlm-field-error validator="minlength">Mínimo 3 caracteres.</hlm-field-error>
+        }
+      </div>
+
+      <div hlmField>
+        <label hlmFieldLabel for="prov-contacto">Datos de contacto</label>
+        <textarea
+          hlmTextarea
+          id="prov-contacto"
+          rows="3"
+          formControlName="datos_contacto"
+          placeholder="Ing. Carlos Mendoza · ventas@proveedor.com · +591 3 3456789"
+        ></textarea>
+        @if (form.controls.datos_contacto.hasError('required')) {
+          <hlm-field-error validator="required">
+            Los datos de contacto son obligatorios.
+          </hlm-field-error>
+        }
+        @if (form.controls.datos_contacto.hasError('minlength')) {
+          <hlm-field-error validator="minlength">
+            Ingrese al menos 5 caracteres de contacto.
+          </hlm-field-error>
+        }
+      </div>
+
+      <hlm-dialog-footer class="pt-2">
+        <button
+          type="button"
+          hlmBtn
+          variant="outline"
+          [disabled]="saving()"
+          (click)="closeDialog()"
+        >
+          Cancelar
+        </button>
+        <button type="submit" hlmBtn [disabled]="saving()">
+          @if (saving()) {
+            <hlm-spinner />
+            <span>Guardando...</span>
+          } @else {
+            <span>{{ editingItem() ? 'Guardar cambios' : 'Registrar proveedor' }}</span>
+          }
+        </button>
+      </hlm-dialog-footer>
+    </form>
+  </hlm-dialog-content>
+</hlm-dialog>
+
+<app-confirm-dialog
+  [open]="confirmTarget() !== null"
+  [title]="confirmTarget()?.activo ? '¿Desactivar proveedor?' : '¿Activar proveedor?'"
+  [description]="
+    confirmTarget()?.activo
+      ? 'Al desactivar a ' +
+        (confirmTarget()?.razon_social ?? '') +
+        ', no aparecerá como opción habilitada al recepcionar nuevos lotes en Almacén.'
+      : 'Al activar a ' +
+        (confirmTarget()?.razon_social ?? '') +
+        ', volverá a estar disponible para recepción de lotes en Almacén.'
+  "
+  [confirmLabel]="confirmTarget()?.activo ? 'Desactivar proveedor' : 'Activar proveedor'"
+  [variant]="confirmTarget()?.activo ? 'destructive' : 'default'"
+  [loading]="toggling()"
+  (confirmed)="confirmToggleActive()"
+  (cancelled)="confirmTarget.set(null)"
+/>
+
+<app-dynamic-report-drawer
+  [open]="reportOpen()"
+  [config]="reportConfig()"
+  [data]="items()"
+  [loading]="loading()"
+  (openChange)="reportOpen.set($event)"
+/>

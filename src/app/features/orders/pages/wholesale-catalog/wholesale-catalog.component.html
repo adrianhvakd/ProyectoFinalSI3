@@ -1,0 +1,498 @@
+<div class="flex flex-col gap-6">
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold text-foreground tracking-tight">Catálogo Mayorista</h1>
+      <p class="text-sm text-muted-foreground">
+        Seleccione materias primas con stock aprobado disponible respetando la cantidad mínima
+        mayorista.
+      </p>
+    </div>
+
+    <a hlmBtn variant="outline" routerLink="/orders/my-orders">
+      <ng-icon name="lucideClipboardList" />
+      <span>Ver Mis Pedidos</span>
+    </a>
+  </div>
+
+  @if (lastOrderResult(); as result) {
+    <div hlmAlert class="border-emerald-300 bg-emerald-50 text-emerald-950">
+      <ng-icon name="lucideCheckCircle2" />
+      <h3 hlmAlertTitle>Pedido #{{ result.numeroPedido }} registrado con éxito</h3>
+      <p hlmAlertDescription>
+        @if (result.metodo === 'QR') {
+          Su comprobante QR fue recibido y el pago quedó en estado "Pendiente de verificación" por
+          Ventas y Caja.
+        } @else {
+          El pedido quedó registrado en estado "Pendiente" para pago presencial en caja.
+        }
+        <a routerLink="/orders/my-orders" class="underline font-semibold ms-1">Ir a Mis Pedidos</a>
+      </p>
+    </div>
+  }
+
+  <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+    <!-- Catálogo de productos aprobados -->
+    <div class="xl:col-span-7 flex flex-col gap-4">
+      <div class="rounded-lg border border-border bg-card p-4 flex items-center gap-3">
+        <div class="relative flex-1">
+          <ng-icon
+            name="lucideSearch"
+            class="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base"
+          />
+          <input
+            hlmInput
+            type="text"
+            [value]="searchTerm()"
+            (input)="searchTerm.set($any($event.target).value)"
+            placeholder="Buscar materia prima por código, nombre o unidad..."
+            aria-label="Buscar en catálogo mayorista"
+            class="pl-9"
+          />
+        </div>
+        <button
+          type="button"
+          hlmBtn
+          variant="ghost"
+          size="icon"
+          (click)="loadCatalog()"
+          aria-label="Actualizar disponibilidad"
+        >
+          <ng-icon name="lucideRefreshCw" />
+        </button>
+      </div>
+
+      @if (error()) {
+        <div hlmAlert variant="destructive">
+          <h3 hlmAlertTitle>Error de carga</h3>
+          <p hlmAlertDescription>{{ error() }}</p>
+        </div>
+      }
+
+      @if (loading()) {
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          @for (item of [1, 2, 3, 4]; track item) {
+            <hlm-skeleton class="h-48 rounded-lg" />
+          }
+        </div>
+      } @else if (filteredCatalog().length === 0) {
+        <section hlmCard class="p-6">
+          <div hlmEmpty class="py-10">
+            <div hlmEmptyHeader>
+              <div hlmEmptyMedia variant="icon">
+                <ng-icon name="lucideShoppingCart" />
+              </div>
+              <h3 hlmEmptyTitle>Sin stock mayorista disponible</h3>
+              <p hlmEmptyDescription>
+                Actualmente no hay lotes aprobados disponibles para la búsqueda ingresada.
+              </p>
+            </div>
+          </div>
+        </section>
+      } @else {
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          @for (product of filteredCatalog(); track product.materiaPrima.id_materia_prima) {
+            @let mp = product.materiaPrima;
+            @let errMsg = productErrors()[mp.id_materia_prima];
+            <section hlmCard class="flex flex-col justify-between">
+              <div hlmCardHeader class="pb-3">
+                <div class="flex items-start justify-between gap-2">
+                  <div>
+                    <span class="font-mono text-xs text-muted-foreground">{{ mp.codigo }}</span>
+                    <h3 hlmCardTitle class="text-base font-semibold mt-0.5">{{ mp.nombre }}</h3>
+                  </div>
+                  <span
+                    hlmBadge
+                    variant="outline"
+                    class="border-emerald-300 bg-emerald-50 text-emerald-800 shrink-0 tabular-nums"
+                  >
+                    {{ product.stockEfectivo | number: '1.2-2' }} {{ mp.unidad_medida }} disp.
+                  </span>
+                </div>
+              </div>
+
+              <div hlmCardContent class="flex flex-col gap-3">
+                <div class="grid grid-cols-2 gap-2 text-xs rounded-md bg-muted/40 p-2.5 border border-border">
+                  <div>
+                    <span class="text-muted-foreground block">Precio mayorista</span>
+                    <span class="text-sm font-semibold text-foreground tabular-nums">
+                      {{ mp.precio_mayorista | currency: 'BOB' : 'Bs ' : '1.2-2' }}
+                    </span>
+                    <span class="text-muted-foreground"> / {{ mp.unidad_medida }}</span>
+                  </div>
+                  <div>
+                    <span class="text-muted-foreground block">Mínimo de venta</span>
+                    <span class="text-sm font-semibold text-foreground tabular-nums">
+                      {{ mp.cantidad_minima_venta | number: '1.2-2' }} {{ mp.unidad_medida }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="flex items-end gap-2">
+                  <div class="flex-1 flex flex-col gap-1">
+                    <label
+                      [for]="'qty-' + mp.id_materia_prima"
+                      class="text-xs font-medium text-muted-foreground"
+                    >
+                      Cantidad ({{ mp.unidad_medida }})
+                    </label>
+                    <input
+                      hlmInput
+                      [id]="'qty-' + mp.id_materia_prima"
+                      type="number"
+                      step="0.01"
+                      [min]="mp.cantidad_minima_venta"
+                      [max]="product.stockEfectivo"
+                      [value]="getDraftQuantity(mp.id_materia_prima, mp.cantidad_minima_venta)"
+                      (input)="onDraftQuantityInput(mp.id_materia_prima, $any($event.target).value)"
+                      class="tabular-nums"
+                    />
+                  </div>
+                  <button type="button" hlmBtn (click)="addToCart(product)">
+                    <ng-icon name="lucidePlus" />
+                    <span>Agregar al pedido</span>
+                  </button>
+                </div>
+
+                @if (errMsg) {
+                  <div hlmAlert variant="destructive" class="py-2">
+                    <ng-icon name="lucideAlertCircle" />
+                    <p hlmAlertDescription class="text-xs">{{ errMsg }}</p>
+                  </div>
+                }
+              </div>
+            </section>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Resumen de Pedido y Pago -->
+    <aside class="xl:col-span-5 flex flex-col gap-4 xl:sticky xl:top-20">
+      <section hlmCard>
+        <div hlmCardHeader>
+          <div class="flex items-center justify-between gap-2">
+            <h2 hlmCardTitle class="text-base font-semibold flex items-center gap-2">
+              <ng-icon name="lucideShoppingCart" class="text-primary" />
+              <span>Resumen de Pedido Mayorista</span>
+            </h2>
+            <span hlmBadge variant="secondary" class="tabular-nums">
+              {{ cartItems().length }} ítems
+            </span>
+          </div>
+          <p hlmCardDescription>
+            Asignación automática de lotes aprobados por fecha de vencimiento (FEFO).
+          </p>
+        </div>
+
+        <div hlmCardContent class="flex flex-col gap-4">
+          @if (cartItems().length === 0) {
+            <div class="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+              Su carrito mayorista está vacío. Seleccione materias primas del catálogo para armar su
+              pedido.
+            </div>
+          } @else {
+            <div class="flex flex-col gap-3 max-h-72 overflow-y-auto pr-1">
+              @for (item of cartItems(); track item.materiaPrima.id_materia_prima) {
+                <div class="rounded-md border border-border bg-background p-3 flex flex-col gap-2">
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="min-w-0">
+                      <p class="text-sm font-semibold text-foreground truncate">
+                        {{ item.materiaPrima.nombre }}
+                      </p>
+                      <p class="text-xs text-muted-foreground tabular-nums">
+                        {{ item.materiaPrima.precio_mayorista | currency: 'BOB' : 'Bs ' : '1.2-2' }}
+                        × {{ item.cantidad | number: '1.2-2' }} {{ item.materiaPrima.unidad_medida }}
+                      </p>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                      <span class="text-sm font-semibold text-foreground tabular-nums">
+                        {{ item.subtotal | currency: 'BOB' : 'Bs ' : '1.2-2' }}
+                      </span>
+                      <button
+                        type="button"
+                        hlmBtn
+                        variant="ghost"
+                        size="icon-xs"
+                        class="text-destructive"
+                        (click)="removeFromCart(item.materiaPrima.id_materia_prima)"
+                        aria-label="Quitar producto del pedido"
+                      >
+                        <ng-icon name="lucideTrash2" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center justify-between gap-2 pt-1 border-t border-border/60">
+                    <div class="flex flex-wrap items-center gap-1">
+                      @for (lot of item.asignaciones; track lot.id_lote) {
+                        <span class="text-[11px] font-mono rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+                          {{ lot.codigo_unico }}: {{ lot.cantidad | number: '1.0-2' }}
+                        </span>
+                      }
+                    </div>
+                    <input
+                      hlmInput
+                      type="number"
+                      step="0.01"
+                      [min]="item.materiaPrima.cantidad_minima_venta"
+                      [max]="item.stockEfectivo"
+                      [value]="item.cantidad"
+                      (change)="
+                        updateCartItemQuantity(
+                          item.materiaPrima.id_materia_prima,
+                          $any($event.target).value
+                        )
+                      "
+                      aria-label="Editar cantidad en carrito"
+                      class="w-24 h-7 text-xs tabular-nums text-end"
+                    />
+                  </div>
+                </div>
+              }
+            </div>
+
+            <hlm-separator />
+
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-muted-foreground">Total mayorista</span>
+              <span class="text-xl font-bold text-foreground tabular-nums">
+                {{ totalMayorista() | currency: 'BOB' : 'Bs ' : '1.2-2' }}
+              </span>
+            </div>
+          }
+
+          <hlm-separator />
+
+          <!-- Modalidad de entrega y Método de pago -->
+          <form
+            [formGroup]="checkoutForm"
+            (ngSubmit)="requestSubmitOrder()"
+            class="flex flex-col gap-4"
+          >
+            <div hlmField>
+              <span hlmFieldLabel>Modalidad de entrega</span>
+              <hlm-radio-group
+                formControlName="modalidad_entrega"
+                class="grid grid-cols-1 gap-2 pt-1"
+              >
+                <label
+                  class="flex items-center gap-2.5 rounded-md border border-border bg-background p-2.5 cursor-pointer hover:bg-muted/40"
+                >
+                  <hlm-radio value="Recojo en el local">
+                    <hlm-radio-indicator indicator />
+                    <div class="flex items-center gap-2 text-sm">
+                      <ng-icon name="lucidePackageCheck" class="text-primary" />
+                      <span>Recojo en el local</span>
+                    </div>
+                  </hlm-radio>
+                </label>
+
+                <label
+                  class="flex items-center gap-2.5 rounded-md border border-border bg-background p-2.5 cursor-pointer hover:bg-muted/40"
+                >
+                  <hlm-radio value="Envío a dirección en camión">
+                    <hlm-radio-indicator indicator />
+                    <div class="flex items-center gap-2 text-sm">
+                      <ng-icon name="lucideTruck" class="text-primary" />
+                      <span>Envío a dirección en camión</span>
+                    </div>
+                  </hlm-radio>
+                </label>
+              </hlm-radio-group>
+            </div>
+
+            @if (selectedDelivery() === 'Envío a dirección en camión') {
+              <div hlmField>
+                <label hlmFieldLabel for="order-dir">
+                  <ng-icon name="lucideMapPin" class="inline text-xs me-1" />
+                  Confirmar dirección de destino *
+                </label>
+                <textarea
+                  hlmTextarea
+                  id="order-dir"
+                  rows="2"
+                  formControlName="direccion_destino"
+                  placeholder="Confirme la dirección exacta para el envío en camión..."
+                ></textarea>
+                @if (checkoutForm.controls.direccion_destino.hasError('required')) {
+                  <hlm-field-error validator="required">
+                    Debe confirmar la dirección de entrega para envío en camión.
+                  </hlm-field-error>
+                }
+                @if (checkoutForm.controls.direccion_destino.hasError('minlength')) {
+                  <hlm-field-error validator="minlength">
+                    Ingrese una dirección detallada (mínimo 5 caracteres).
+                  </hlm-field-error>
+                }
+              </div>
+            }
+
+            <div hlmField>
+              <span hlmFieldLabel>Método de pago</span>
+              <hlm-radio-group
+                formControlName="metodo_pago"
+                class="grid grid-cols-2 gap-2.5 pt-1"
+              >
+                <label
+                  class="flex items-center gap-2 rounded-md border border-border bg-background p-2.5 cursor-pointer hover:bg-muted/40"
+                >
+                  <hlm-radio value="QR">
+                    <hlm-radio-indicator indicator />
+                    <div class="flex items-center gap-1.5 text-sm font-medium">
+                      <ng-icon name="lucideQrCode" class="text-primary" />
+                      <span>Pago QR</span>
+                    </div>
+                  </hlm-radio>
+                </label>
+
+                <label
+                  class="flex items-center gap-2 rounded-md border border-border bg-background p-2.5 cursor-pointer hover:bg-muted/40"
+                >
+                  <hlm-radio value="Efectivo">
+                    <hlm-radio-indicator indicator />
+                    <div class="flex items-center gap-1.5 text-sm font-medium">
+                      <ng-icon name="lucideBanknote" class="text-primary" />
+                      <span>Efectivo</span>
+                    </div>
+                  </hlm-radio>
+                </label>
+              </hlm-radio-group>
+            </div>
+
+            @if (selectedPaymentMethod() === 'QR') {
+              <div class="rounded-lg border border-border bg-muted/30 p-3.5 flex flex-col gap-3">
+                <div class="flex flex-col sm:flex-row items-center gap-4">
+                  <img
+                    src="/assets/qr-institucional.svg"
+                    alt="Código QR institucional para transferencia"
+                    class="size-36 rounded-lg border border-border bg-white p-1.5 shrink-0"
+                  />
+                  <div class="flex flex-col gap-1 text-xs">
+                    <p class="font-semibold text-foreground text-sm">
+                      Transferencia QR Institucional
+                    </p>
+                    <p class="text-muted-foreground">
+                      Transfiera exactamente
+                      <strong class="text-foreground tabular-nums">
+                        {{ totalMayorista() | currency: 'BOB' : 'Bs ' : '1.2-2' }}
+                      </strong>
+                      y adjunte el comprobante en PNG, JPG o PDF (máximo 5 MB).
+                    </p>
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-2">
+                  <label
+                    for="qr-file-input"
+                    class="flex items-center justify-center gap-2 rounded-md border border-dashed border-input bg-background px-3 py-2.5 text-xs font-medium text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
+                  >
+                    <ng-icon name="lucideUpload" class="text-sm text-primary" />
+                    <span>
+                      {{
+                        selectedFile()
+                          ? selectedFile()!.name
+                          : 'Seleccionar comprobante (PNG, JPG o PDF · máx. 5 MB)'
+                      }}
+                    </span>
+                  </label>
+                  <input
+                    id="qr-file-input"
+                    type="file"
+                    accept=".png,.jpg,.jpeg,.pdf,image/png,image/jpeg,application/pdf"
+                    class="sr-only"
+                    (change)="onReceiptFileSelected($event)"
+                  />
+
+                  @if (filePreviewUrl(); as preview) {
+                    <div class="flex items-center gap-3 rounded-md border border-border bg-card p-2">
+                      <img
+                        [src]="preview"
+                        alt="Vista previa del comprobante QR"
+                        class="size-14 rounded object-cover border border-border"
+                      />
+                      <div class="flex-1 min-w-0 text-xs">
+                        <p class="font-medium truncate text-foreground">
+                          {{ selectedFile()?.name }}
+                        </p>
+                        <p class="text-muted-foreground tabular-nums">
+                          {{ ((selectedFile()?.size ?? 0) / 1024).toFixed(1) }} KB
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        hlmBtn
+                        variant="ghost"
+                        size="xs"
+                        (click)="clearSelectedFile()"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  } @else if (selectedFile(); as pdfFile) {
+                    <div class="flex items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs">
+                      <span class="truncate font-medium">{{ pdfFile.name }}</span>
+                      <button
+                        type="button"
+                        hlmBtn
+                        variant="ghost"
+                        size="xs"
+                        (click)="clearSelectedFile()"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  }
+
+                  @if (fileError()) {
+                    <p class="text-xs text-destructive font-medium" role="alert">
+                      {{ fileError() }}
+                    </p>
+                  }
+                </div>
+              </div>
+            } @else {
+              <div class="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+                El pedido se registrará con pago en <strong class="text-foreground">Efectivo</strong>
+                en estado <strong class="text-foreground">Pendiente</strong> para cobro presencial en
+                caja de la importadora.
+              </div>
+            }
+
+            <button
+              type="submit"
+              hlmBtn
+              size="lg"
+              class="w-full"
+              [disabled]="cartItems().length === 0 || submittingOrder()"
+            >
+              @if (submittingOrder()) {
+                <hlm-spinner />
+                <span>Procesando pedido...</span>
+              } @else {
+                <span>Confirmar Pedido Mayorista</span>
+              }
+            </button>
+          </form>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<app-confirm-dialog
+  [open]="confirmOrderOpen()"
+  title="¿Confirmar creación del pedido mayorista?"
+  [description]="
+    'Se registrará su pedido por un total de Bs ' +
+    totalMayorista().toFixed(2) +
+    ' con modalidad ' +
+    selectedDelivery() +
+    ' y método de pago ' +
+    selectedPaymentMethod() +
+    '.'
+  "
+  confirmLabel="Confirmar y Enviar Pedido"
+  [loading]="submittingOrder()"
+  (confirmed)="confirmSubmitOrder()"
+  (cancelled)="confirmOrderOpen.set(false)"
+/>

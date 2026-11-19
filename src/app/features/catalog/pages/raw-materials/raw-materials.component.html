@@ -1,0 +1,359 @@
+<div class="flex flex-col gap-6">
+  <!-- Cabecera operativa -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold text-foreground tracking-tight">
+        Catálogo de Materias Primas
+      </h1>
+      <p class="text-sm text-muted-foreground">
+        Gestione códigos, precios mayoristas, mínimos de venta y estándares exigidos de calidad.
+      </p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        hlmBtn
+        variant="outline"
+        [disabled]="loading()"
+        (click)="reportOpen.set(true)"
+      >
+        <ng-icon name="lucideFileBarChart2" />
+        <span>Generar Reporte</span>
+      </button>
+      <button type="button" hlmBtn (click)="openCreateDialog()">
+        <ng-icon name="lucidePlus" />
+        <span>Nueva Materia Prima</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Barra de búsqueda y filtro -->
+  <div
+    class="rounded-lg border border-border bg-card p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3"
+  >
+    <div class="relative flex-1 max-w-md">
+      <ng-icon
+        name="lucideSearch"
+        class="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base"
+      />
+      <input
+        hlmInput
+        type="text"
+        [value]="searchTerm()"
+        (input)="onSearch($any($event.target).value)"
+        placeholder="Buscar por código, nombre o unidad..."
+        aria-label="Buscar materia prima"
+        class="pl-9"
+      />
+    </div>
+
+    <div class="flex items-center gap-2">
+      <hlm-native-select
+        [value]="stockFilter()"
+        (valueChange)="onStockFilterChange($event)"
+        aria-label="Filtrar por disponibilidad de stock"
+      >
+        <option hlmNativeSelectOption value="all">Todo el catálogo</option>
+        <option hlmNativeSelectOption value="with-stock">Con stock disponible</option>
+        <option hlmNativeSelectOption value="no-stock">Sin stock (0)</option>
+      </hlm-native-select>
+
+      <button
+        type="button"
+        hlmBtn
+        variant="ghost"
+        size="icon"
+        (click)="loadItems()"
+        aria-label="Actualizar catálogo"
+      >
+        <ng-icon name="lucideRefreshCw" />
+      </button>
+    </div>
+  </div>
+
+  @if (error()) {
+    <div hlmAlert variant="destructive">
+      <h3 hlmAlertTitle>Error de carga</h3>
+      <p hlmAlertDescription>{{ error() }}</p>
+    </div>
+  }
+
+  <!-- Tabla de materias primas -->
+  <section class="rounded-lg border border-border bg-card p-4 flex flex-col gap-4">
+    @if (loading()) {
+      <div class="flex flex-col gap-3">
+        @for (row of [1, 2, 3, 4, 5]; track row) {
+          <hlm-skeleton class="h-11 w-full rounded-md" />
+        }
+      </div>
+    } @else if (filteredItems().length === 0) {
+      <div hlmEmpty class="py-12">
+        <div hlmEmptyHeader>
+          <div hlmEmptyMedia variant="icon">
+            <ng-icon name="lucidePackage" />
+          </div>
+          <h3 hlmEmptyTitle>No se encontraron materias primas</h3>
+          <p hlmEmptyDescription>
+            Ajuste los criterios de búsqueda o registre una nueva materia prima en el catálogo.
+          </p>
+        </div>
+      </div>
+    } @else {
+      <div hlmTableContainer>
+        <table hlmTable>
+          <thead hlmTHead>
+            <tr hlmTr>
+              <th hlmTh>Código</th>
+              <th hlmTh>Materia Prima</th>
+              <th hlmTh>Unidad</th>
+              <th hlmTh class="text-end">Precio Mayorista</th>
+              <th hlmTh class="text-end">Mínimo Venta</th>
+              <th hlmTh class="text-end">Stock Disponible</th>
+              <th hlmTh>Parámetros de Calidad</th>
+              <th hlmTh class="text-end">Acciones</th>
+            </tr>
+          </thead>
+          <tbody hlmTBody>
+            @for (item of paginatedItems(); track item.id_materia_prima) {
+              <tr hlmTr>
+                <td hlmTd class="font-mono text-xs font-semibold text-foreground tabular-nums">
+                  {{ item.codigo }}
+                </td>
+                <td hlmTd class="font-medium text-foreground">{{ item.nombre }}</td>
+                <td hlmTd class="text-muted-foreground">{{ item.unidad_medida }}</td>
+                <td hlmTd class="text-end tabular-nums font-medium">
+                  {{ item.precio_mayorista | currency: 'BOB' : 'Bs ' : '1.2-2' }}
+                </td>
+                <td hlmTd class="text-end tabular-nums">
+                  {{ item.cantidad_minima_venta | number: '1.2-2' }} {{ item.unidad_medida }}
+                </td>
+                <td hlmTd class="text-end tabular-nums">
+                  <span
+                    hlmBadge
+                    [variant]="item.stock_disponible_total > 0 ? 'outline' : 'secondary'"
+                    [class]="
+                      item.stock_disponible_total > 0
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                        : ''
+                    "
+                  >
+                    {{ item.stock_disponible_total | number: '1.2-2' }} {{ item.unidad_medida }}
+                  </span>
+                </td>
+                <td hlmTd class="max-w-xs truncate text-muted-foreground">
+                  {{ item.parametros_calidad_exigidos }}
+                </td>
+                <td hlmTd class="text-end">
+                  <button
+                    type="button"
+                    hlmBtn
+                    variant="ghost"
+                    size="sm"
+                    (click)="openEditDialog(item)"
+                  >
+                    <ng-icon name="lucidePencil" />
+                    <span>Editar</span>
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <app-table-pagination
+        [totalItems]="filteredItems().length"
+        [page]="page()"
+        [pageSize]="pageSize()"
+        (pageChange)="page.set($event)"
+        (pageSizeChange)="pageSize.set($event); page.set(1)"
+      />
+    }
+  </section>
+</div>
+
+<!-- Dialog CRUD Materia Prima -->
+<hlm-dialog [state]="dialogOpen() ? 'open' : 'closed'" (closed)="closeDialog()">
+  <hlm-dialog-content *hlmDialogPortal class="sm:max-w-lg max-h-[90dvh] overflow-y-auto">
+    <hlm-dialog-header>
+      <h3 hlmDialogTitle>
+        {{ editingItem() ? 'Editar Materia Prima' : 'Registrar Materia Prima' }}
+      </h3>
+      <p hlmDialogDescription>
+        Los cambios en mínimo de venta y parámetros de calidad aplican de inmediato a nuevos
+        lotes y pedidos.
+      </p>
+    </hlm-dialog-header>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="flex flex-col gap-4 pt-2">
+      @if (editingItem(); as current) {
+        <div
+          class="rounded-md border border-border bg-muted/40 px-3 py-2 flex items-center justify-between text-xs"
+        >
+          <span class="text-muted-foreground font-medium">Stock disponible total (solo lectura)</span>
+          <span class="font-semibold text-foreground tabular-nums">
+            {{ current.stock_disponible_total | number: '1.2-2' }} {{ current.unidad_medida }}
+          </span>
+        </div>
+      }
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div hlmField>
+          <label hlmFieldLabel for="mp-codigo">Código único</label>
+          <input
+            hlmInput
+            id="mp-codigo"
+            formControlName="codigo"
+            placeholder="MP-RESINA-01"
+            class="uppercase font-mono"
+          />
+          @if (form.controls.codigo.hasError('required')) {
+            <hlm-field-error validator="required">El código es obligatorio.</hlm-field-error>
+          }
+          @if (form.controls.codigo.hasError('codeFormat')) {
+            <hlm-field-error validator="codeFormat">
+              Use solo letras, números, puntos o guiones (2-40 caracteres).
+            </hlm-field-error>
+          }
+        </div>
+
+        <div hlmField>
+          <label hlmFieldLabel for="mp-unidad">Unidad de medida</label>
+          <input
+            hlmInput
+            id="mp-unidad"
+            formControlName="unidad_medida"
+            list="unidades-medida-list"
+            placeholder="kg, ton, L, unidad"
+          />
+          <datalist id="unidades-medida-list">
+            <option value="kg"></option>
+            <option value="ton"></option>
+            <option value="L"></option>
+            <option value="m³"></option>
+            <option value="saco"></option>
+            <option value="tambor"></option>
+            <option value="unidad"></option>
+          </datalist>
+          @if (form.controls.unidad_medida.hasError('required')) {
+            <hlm-field-error validator="required">
+              La unidad de medida es obligatoria.
+            </hlm-field-error>
+          }
+        </div>
+      </div>
+
+      <div hlmField>
+        <label hlmFieldLabel for="mp-nombre">Nombre de la materia prima</label>
+        <input
+          hlmInput
+          id="mp-nombre"
+          formControlName="nombre"
+          placeholder="Resina Polietileno HDPE Industrial"
+        />
+        @if (form.controls.nombre.hasError('required')) {
+          <hlm-field-error validator="required">El nombre es obligatorio.</hlm-field-error>
+        }
+        @if (form.controls.nombre.hasError('minlength')) {
+          <hlm-field-error validator="minlength">Mínimo 2 caracteres.</hlm-field-error>
+        }
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div hlmField>
+          <label hlmFieldLabel for="mp-precio">Precio mayorista (Bs)</label>
+          <input
+            hlmInput
+            id="mp-precio"
+            type="number"
+            step="0.01"
+            min="0.01"
+            formControlName="precio_mayorista"
+            class="tabular-nums"
+          />
+          @if (form.controls.precio_mayorista.hasError('required')) {
+            <hlm-field-error validator="required">El precio es obligatorio.</hlm-field-error>
+          }
+          @if (form.controls.precio_mayorista.hasError('positiveDecimal')) {
+            <hlm-field-error validator="positiveDecimal">
+              Debe ser estrictamente mayor a 0.
+            </hlm-field-error>
+          }
+        </div>
+
+        <div hlmField>
+          <label hlmFieldLabel for="mp-min">Cantidad mínima de venta</label>
+          <input
+            hlmInput
+            id="mp-min"
+            type="number"
+            step="0.01"
+            min="0.01"
+            formControlName="cantidad_minima_venta"
+            class="tabular-nums"
+          />
+          @if (form.controls.cantidad_minima_venta.hasError('required')) {
+            <hlm-field-error validator="required">El mínimo es obligatorio.</hlm-field-error>
+          }
+          @if (form.controls.cantidad_minima_venta.hasError('positiveDecimal')) {
+            <hlm-field-error validator="positiveDecimal">
+              Debe ser estrictamente mayor a 0.
+            </hlm-field-error>
+          }
+        </div>
+      </div>
+
+      <div hlmField>
+        <label hlmFieldLabel for="mp-calidad">Parámetros de calidad exigidos</label>
+        <textarea
+          hlmTextarea
+          id="mp-calidad"
+          rows="3"
+          formControlName="parametros_calidad_exigidos"
+          placeholder="Ej: Pureza >= 98%; Humedad <= 0.5%; Envase sellado sin daños"
+        ></textarea>
+        <p hlmFieldDescription>
+          Separe los criterios por punto y coma o salto de línea para el checklist de inspección.
+        </p>
+        @if (form.controls.parametros_calidad_exigidos.hasError('required')) {
+          <hlm-field-error validator="required">
+            Los parámetros de calidad son obligatorios.
+          </hlm-field-error>
+        }
+        @if (form.controls.parametros_calidad_exigidos.hasError('minlength')) {
+          <hlm-field-error validator="minlength">
+            Describa al menos 5 caracteres técnicos.
+          </hlm-field-error>
+        }
+      </div>
+
+      <hlm-dialog-footer class="pt-2">
+        <button
+          type="button"
+          hlmBtn
+          variant="outline"
+          [disabled]="saving()"
+          (click)="closeDialog()"
+        >
+          Cancelar
+        </button>
+        <button type="submit" hlmBtn [disabled]="saving()">
+          @if (saving()) {
+            <hlm-spinner />
+            <span>Guardando...</span>
+          } @else {
+            <span>{{ editingItem() ? 'Guardar cambios' : 'Registrar materia prima' }}</span>
+          }
+        </button>
+      </hlm-dialog-footer>
+    </form>
+  </hlm-dialog-content>
+</hlm-dialog>
+
+<app-dynamic-report-drawer
+  [open]="reportOpen()"
+  [config]="reportConfig()"
+  [data]="items()"
+  [loading]="loading()"
+  (openChange)="reportOpen.set($event)"
+/>

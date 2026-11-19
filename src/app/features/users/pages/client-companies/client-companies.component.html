@@ -1,0 +1,475 @@
+<div class="flex flex-col gap-6">
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold text-foreground tracking-tight">Empresas Clientes</h1>
+      <p class="text-sm text-muted-foreground">
+        Alta atómica de clientes mayoristas con credenciales de acceso y dirección de despacho.
+      </p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        hlmBtn
+        variant="outline"
+        [disabled]="loading()"
+        (click)="reportOpen.set(true)"
+      >
+        <ng-icon name="lucideFileBarChart2" />
+        <span>Generar Reporte</span>
+      </button>
+      <button type="button" hlmBtn (click)="openCreateDialog()">
+        <ng-icon name="lucidePlus" />
+        <span>Nueva Empresa Cliente</span>
+      </button>
+    </div>
+  </div>
+
+  <div
+    class="rounded-lg border border-border bg-card p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3"
+  >
+    <div class="relative flex-1 max-w-md">
+      <ng-icon
+        name="lucideSearch"
+        class="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base"
+      />
+      <input
+        hlmInput
+        type="text"
+        [value]="searchTerm()"
+        (input)="onSearch($any($event.target).value)"
+        placeholder="Buscar por razón social, NIT, correo o dirección..."
+        aria-label="Buscar empresa cliente"
+        class="pl-9"
+      />
+    </div>
+
+    <div class="flex items-center gap-2">
+      <hlm-native-select
+        [value]="statusFilter()"
+        (valueChange)="onStatusFilterChange($event)"
+        aria-label="Filtrar por estado"
+      >
+        <option hlmNativeSelectOption value="all">Todos los estados</option>
+        <option hlmNativeSelectOption value="active">Activos</option>
+        <option hlmNativeSelectOption value="inactive">Inactivos</option>
+      </hlm-native-select>
+
+      <button
+        type="button"
+        hlmBtn
+        variant="ghost"
+        size="icon"
+        (click)="loadItems()"
+        aria-label="Actualizar empresas clientes"
+      >
+        <ng-icon name="lucideRefreshCw" />
+      </button>
+    </div>
+  </div>
+
+  @if (error()) {
+    <div hlmAlert variant="destructive">
+      <h3 hlmAlertTitle>Error de carga</h3>
+      <p hlmAlertDescription>{{ error() }}</p>
+    </div>
+  }
+
+  <section class="rounded-lg border border-border bg-card p-4 flex flex-col gap-4">
+    @if (loading()) {
+      <div class="flex flex-col gap-3">
+        @for (row of [1, 2, 3, 4, 5]; track row) {
+          <hlm-skeleton class="h-11 w-full rounded-md" />
+        }
+      </div>
+    } @else if (filteredItems().length === 0) {
+      <div hlmEmpty class="py-12">
+        <div hlmEmptyHeader>
+          <div hlmEmptyMedia variant="icon">
+            <ng-icon name="lucideBriefcase" />
+          </div>
+          <h3 hlmEmptyTitle>Sin empresas clientes registradas</h3>
+          <p hlmEmptyDescription>
+            Ajuste la búsqueda o dé de alta una nueva empresa cliente mayorista.
+          </p>
+        </div>
+      </div>
+    } @else {
+      <div hlmTableContainer>
+        <table hlmTable>
+          <thead hlmTHead>
+            <tr hlmTr>
+              <th hlmTh>NIT</th>
+              <th hlmTh>Razón Social</th>
+              <th hlmTh>Contacto / Acceso</th>
+              <th hlmTh>Teléfono</th>
+              <th hlmTh>Dirección de Entrega</th>
+              <th hlmTh>Estado</th>
+              <th hlmTh class="text-end">Acciones</th>
+            </tr>
+          </thead>
+          <tbody hlmTBody>
+            @for (item of paginatedItems(); track item.id_empresa_cliente) {
+              @let usr = getUsuario(item);
+              <tr hlmTr>
+                <td hlmTd class="font-mono text-xs font-semibold text-foreground tabular-nums">
+                  {{ item.nit }}
+                </td>
+                <td hlmTd class="font-medium text-foreground">{{ item.razon_social }}</td>
+                <td hlmTd>
+                  <div class="flex flex-col">
+                    <span class="text-sm text-foreground">{{ usr?.nombre_completo ?? '—' }}</span>
+                    <span class="text-xs text-muted-foreground">{{ usr?.email ?? '—' }}</span>
+                  </div>
+                </td>
+                <td hlmTd class="tabular-nums text-muted-foreground">{{ item.telefono }}</td>
+                <td hlmTd class="max-w-xs truncate text-muted-foreground">
+                  {{ item.direccion_entrega }}
+                </td>
+                <td hlmTd>
+                  <app-status-badge
+                    [status]="usr?.activo ? 'Activo' : 'Inactivo'"
+                    kind="boolean"
+                  />
+                </td>
+                <td hlmTd class="text-end">
+                  <div class="inline-flex items-center gap-1">
+                    <button
+                      type="button"
+                      hlmBtn
+                      variant="ghost"
+                      size="sm"
+                      (click)="openEditDialog(item)"
+                    >
+                      <ng-icon name="lucidePencil" />
+                      <span>Editar</span>
+                    </button>
+                    <button
+                      type="button"
+                      hlmBtn
+                      [variant]="usr?.activo ? 'destructive' : 'outline'"
+                      size="sm"
+                      (click)="requestToggleActive(item)"
+                    >
+                      <ng-icon name="lucidePower" />
+                      <span>{{ usr?.activo ? 'Desactivar' : 'Activar' }}</span>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <app-table-pagination
+        [totalItems]="filteredItems().length"
+        [page]="page()"
+        [pageSize]="pageSize()"
+        (pageChange)="page.set($event)"
+        (pageSizeChange)="pageSize.set($event); page.set(1)"
+      />
+    }
+  </section>
+</div>
+
+<!-- Dialog Alta Empresa Cliente -->
+<hlm-dialog [state]="createDialogOpen() ? 'open' : 'closed'" (closed)="closeCreateDialog()">
+  <hlm-dialog-content *hlmDialogPortal class="sm:max-w-xl max-h-[90dvh] overflow-y-auto">
+    <hlm-dialog-header>
+      <h3 hlmDialogTitle>Registrar Empresa Cliente</h3>
+      <p hlmDialogDescription>
+        Crea el usuario corporativo y la ficha de empresa cliente en una sola operación atómica.
+      </p>
+    </hlm-dialog-header>
+
+    <form [formGroup]="createForm" (ngSubmit)="onCreateSubmit()" class="flex flex-col gap-4 pt-2">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div hlmField>
+          <label hlmFieldLabel for="cli-nit">NIT</label>
+          <input
+            hlmInput
+            id="cli-nit"
+            formControlName="nit"
+            placeholder="1028374021"
+            class="font-mono uppercase"
+          />
+          @if (createForm.controls.nit.hasError('required')) {
+            <hlm-field-error validator="required">El NIT es obligatorio.</hlm-field-error>
+          }
+          @if (createForm.controls.nit.hasError('nitFormat')) {
+            <hlm-field-error validator="nitFormat">Formato de NIT inválido (5-20 chars).</hlm-field-error>
+          }
+        </div>
+
+        <div hlmField>
+          <label hlmFieldLabel for="cli-tel">Teléfono de contacto</label>
+          <input
+            hlmInput
+            id="cli-tel"
+            formControlName="telefono"
+            placeholder="+591 70012345"
+            class="tabular-nums"
+          />
+          @if (createForm.controls.telefono.hasError('required')) {
+            <hlm-field-error validator="required">El teléfono es obligatorio.</hlm-field-error>
+          }
+          @if (createForm.controls.telefono.hasError('phoneFormat')) {
+            <hlm-field-error validator="phoneFormat">Ingrese un teléfono válido.</hlm-field-error>
+          }
+        </div>
+      </div>
+
+      <div hlmField>
+        <label hlmFieldLabel for="cli-razon">Razón social</label>
+        <input
+          hlmInput
+          id="cli-razon"
+          formControlName="razon_social"
+          placeholder="Industrias Alimentarias del Oriente S.R.L."
+        />
+        @if (createForm.controls.razon_social.hasError('required')) {
+          <hlm-field-error validator="required">La razón social es obligatoria.</hlm-field-error>
+        }
+        @if (createForm.controls.razon_social.hasError('minlength')) {
+          <hlm-field-error validator="minlength">Mínimo 3 caracteres.</hlm-field-error>
+        }
+      </div>
+
+      <div hlmField>
+        <label hlmFieldLabel for="cli-dir">Dirección de entrega predeterminada</label>
+        <textarea
+          hlmTextarea
+          id="cli-dir"
+          rows="2"
+          formControlName="direccion_entrega"
+          placeholder="Parque Industrial Mza. 14, Nave 3, Santa Cruz"
+        ></textarea>
+        @if (createForm.controls.direccion_entrega.hasError('required')) {
+          <hlm-field-error validator="required">
+            La dirección de entrega es obligatoria.
+          </hlm-field-error>
+        }
+        @if (createForm.controls.direccion_entrega.hasError('minlength')) {
+          <hlm-field-error validator="minlength">
+            Ingrese una dirección detallada (mínimo 5 caracteres).
+          </hlm-field-error>
+        }
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div hlmField>
+          <label hlmFieldLabel for="cli-rep">Nombre del representante</label>
+          <input
+            hlmInput
+            id="cli-rep"
+            formControlName="nombre_completo"
+            placeholder="Roberto Salvatierra"
+          />
+          @if (createForm.controls.nombre_completo.hasError('required')) {
+            <hlm-field-error validator="required">
+              El representante es obligatorio.
+            </hlm-field-error>
+          }
+          @if (createForm.controls.nombre_completo.hasError('minlength')) {
+            <hlm-field-error validator="minlength">Mínimo 3 caracteres.</hlm-field-error>
+          }
+        </div>
+
+        <div hlmField>
+          <label hlmFieldLabel for="cli-email">Correo de acceso al portal</label>
+          <input
+            hlmInput
+            id="cli-email"
+            type="email"
+            formControlName="email"
+            placeholder="compras@cliente.com"
+          />
+          @if (createForm.controls.email.hasError('required')) {
+            <hlm-field-error validator="required">El correo es obligatorio.</hlm-field-error>
+          }
+          @if (createForm.controls.email.hasError('email')) {
+            <hlm-field-error validator="email">Formato de correo inválido.</hlm-field-error>
+          }
+        </div>
+      </div>
+
+      <div hlmField>
+        <label hlmFieldLabel for="cli-password">Contraseña de acceso</label>
+        <div class="relative">
+          <input
+            hlmInput
+            id="cli-password"
+            [type]="showCreatePassword() ? 'text' : 'password'"
+            formControlName="password"
+            placeholder="Mínimo 8 caracteres"
+            class="pr-10"
+          />
+          <button
+            type="button"
+            hlmBtn
+            variant="ghost"
+            size="icon-xs"
+            (click)="showCreatePassword.set(!showCreatePassword())"
+            [attr.aria-label]="showCreatePassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+            class="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+          >
+            <ng-icon [name]="showCreatePassword() ? 'lucideEyeOff' : 'lucideEye'" />
+          </button>
+        </div>
+        @if (createForm.controls.password.hasError('required')) {
+          <hlm-field-error validator="required">La contraseña es obligatoria.</hlm-field-error>
+        }
+        @if (createForm.controls.password.hasError('minlength')) {
+          <hlm-field-error validator="minlength">Mínimo 8 caracteres.</hlm-field-error>
+        }
+      </div>
+
+      <hlm-dialog-footer class="pt-2">
+        <button
+          type="button"
+          hlmBtn
+          variant="outline"
+          [disabled]="saving()"
+          (click)="closeCreateDialog()"
+        >
+          Cancelar
+        </button>
+        <button type="submit" hlmBtn [disabled]="saving()">
+          @if (saving()) {
+            <hlm-spinner />
+            <span>Registrando...</span>
+          } @else {
+            <span>Registrar empresa cliente</span>
+          }
+        </button>
+      </hlm-dialog-footer>
+    </form>
+  </hlm-dialog-content>
+</hlm-dialog>
+
+<!-- Dialog Edición Empresa Cliente -->
+<hlm-dialog [state]="editDialogOpen() ? 'open' : 'closed'" (closed)="closeEditDialog()">
+  <hlm-dialog-content *hlmDialogPortal class="sm:max-w-lg max-h-[90dvh] overflow-y-auto">
+    <hlm-dialog-header>
+      <h3 hlmDialogTitle>Editar Empresa Cliente</h3>
+      <p hlmDialogDescription>
+        Modifique los datos fiscales, teléfono o dirección de entrega del cliente mayorista.
+      </p>
+    </hlm-dialog-header>
+
+    @if (editingItem(); as target) {
+      <form [formGroup]="editForm" (ngSubmit)="onEditSubmit()" class="flex flex-col gap-4 pt-2">
+        <div class="rounded-md border border-border bg-muted/40 p-3 text-xs">
+          <span class="text-muted-foreground block">Correo de acceso</span>
+          <span class="font-medium text-foreground">{{ getUsuario(target)?.email ?? '—' }}</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div hlmField>
+            <label hlmFieldLabel for="edit-cli-nit">NIT</label>
+            <input hlmInput id="edit-cli-nit" formControlName="nit" class="font-mono uppercase" />
+            @if (editForm.controls.nit.hasError('required')) {
+              <hlm-field-error validator="required">El NIT es obligatorio.</hlm-field-error>
+            }
+            @if (editForm.controls.nit.hasError('nitFormat')) {
+              <hlm-field-error validator="nitFormat">Formato de NIT inválido.</hlm-field-error>
+            }
+          </div>
+
+          <div hlmField>
+            <label hlmFieldLabel for="edit-cli-tel">Teléfono</label>
+            <input hlmInput id="edit-cli-tel" formControlName="telefono" class="tabular-nums" />
+            @if (editForm.controls.telefono.hasError('required')) {
+              <hlm-field-error validator="required">El teléfono es obligatorio.</hlm-field-error>
+            }
+            @if (editForm.controls.telefono.hasError('phoneFormat')) {
+              <hlm-field-error validator="phoneFormat">Teléfono inválido.</hlm-field-error>
+            }
+          </div>
+        </div>
+
+        <div hlmField>
+          <label hlmFieldLabel for="edit-cli-razon">Razón social</label>
+          <input hlmInput id="edit-cli-razon" formControlName="razon_social" />
+          @if (editForm.controls.razon_social.hasError('required')) {
+            <hlm-field-error validator="required">La razón social es obligatoria.</hlm-field-error>
+          }
+          @if (editForm.controls.razon_social.hasError('minlength')) {
+            <hlm-field-error validator="minlength">Mínimo 3 caracteres.</hlm-field-error>
+          }
+        </div>
+
+        <div hlmField>
+          <label hlmFieldLabel for="edit-cli-rep">Representante / Contacto</label>
+          <input hlmInput id="edit-cli-rep" formControlName="nombre_completo" />
+          @if (editForm.controls.nombre_completo.hasError('required')) {
+            <hlm-field-error validator="required">El representante es obligatorio.</hlm-field-error>
+          }
+        </div>
+
+        <div hlmField>
+          <label hlmFieldLabel for="edit-cli-dir">Dirección de entrega</label>
+          <textarea
+            hlmTextarea
+            id="edit-cli-dir"
+            rows="2"
+            formControlName="direccion_entrega"
+          ></textarea>
+          @if (editForm.controls.direccion_entrega.hasError('required')) {
+            <hlm-field-error validator="required">La dirección es obligatoria.</hlm-field-error>
+          }
+          @if (editForm.controls.direccion_entrega.hasError('minlength')) {
+            <hlm-field-error validator="minlength">Mínimo 5 caracteres.</hlm-field-error>
+          }
+        </div>
+
+        <hlm-dialog-footer class="pt-2">
+          <button
+            type="button"
+            hlmBtn
+            variant="outline"
+            [disabled]="saving()"
+            (click)="closeEditDialog()"
+          >
+            Cancelar
+          </button>
+          <button type="submit" hlmBtn [disabled]="saving()">
+            @if (saving()) {
+              <hlm-spinner />
+              <span>Guardando...</span>
+            } @else {
+              <span>Guardar cambios</span>
+            }
+          </button>
+        </hlm-dialog-footer>
+      </form>
+    }
+  </hlm-dialog-content>
+</hlm-dialog>
+
+<app-confirm-dialog
+  [open]="confirmTarget() !== null"
+  [title]="confirmTargetIsActive() ? '¿Desactivar empresa cliente?' : '¿Activar empresa cliente?'"
+  [description]="
+    confirmTargetIsActive()
+      ? 'La empresa ' +
+        (confirmTarget()?.razon_social ?? '') +
+        ' no podrá iniciar sesión ni registrar nuevos pedidos mayoristas.'
+      : 'Se habilitará nuevamente el acceso mayorista para ' +
+        (confirmTarget()?.razon_social ?? '') +
+        '.'
+  "
+  [confirmLabel]="confirmTargetIsActive() ? 'Desactivar empresa' : 'Activar empresa'"
+  [variant]="confirmTargetIsActive() ? 'destructive' : 'default'"
+  [loading]="toggling()"
+  (confirmed)="confirmToggleActive()"
+  (cancelled)="confirmTarget.set(null)"
+/>
+
+<app-dynamic-report-drawer
+  [open]="reportOpen()"
+  [config]="reportConfig"
+  [data]="items()"
+  [loading]="loading()"
+  (openChange)="reportOpen.set($event)"
+/>

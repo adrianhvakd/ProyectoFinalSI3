@@ -1,0 +1,57 @@
+@if (totalItems() > 0) {
+  <div
+    class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-border text-sm text-muted-foreground"
+  >
+    <p class="tabular-nums">
+      Mostrando <span class="font-medium text-foreground">{{ startItem() }}</span>–<span
+        class="font-medium text-foreground"
+        >{{ endItem() }}</span
+      >
+      de <span class="font-medium text-foreground">{{ totalItems() }}</span> registros
+    </p>
+
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
+        <span class="text-xs">Filas:</span>
+        <hlm-native-select
+          size="sm"
+          [value]="'' + pageSize()"
+          (valueChange)="onPageSizeChanged($event)"
+          aria-label="Filas por página"
+        >
+          @for (opt of pageSizeOptions(); track opt) {
+            <option hlmNativeSelectOption [value]="'' + opt">{{ opt }}</option>
+          }
+        </hlm-native-select>
+      </div>
+
+      <div class="flex items-center gap-1.5">
+        <button
+          type="button"
+          hlmBtn
+          variant="outline"
+          size="icon-sm"
+          [disabled]="page() <= 1"
+          (click)="previous()"
+          aria-label="Página anterior"
+        >
+          <ng-icon name="lucideChevronLeft" />
+        </button>
+        <span class="px-2 text-xs font-medium text-foreground tabular-nums">
+          {{ page() }} / {{ totalPages() }}
+        </span>
+        <button
+          type="button"
+          hlmBtn
+          variant="outline"
+          size="icon-sm"
+          [disabled]="page() >= totalPages()"
+          (click)="next()"
+          aria-label="Página siguiente"
+        >
+          <ng-icon name="lucideChevronRight" />
+        </button>
+      </div>
+    </div>
+  </div>
+}

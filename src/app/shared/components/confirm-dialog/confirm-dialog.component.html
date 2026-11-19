@@ -1,0 +1,30 @@
+<hlm-alert-dialog [state]="open() ? 'open' : 'closed'" (closed)="onClosed()">
+  <hlm-alert-dialog-content *hlmAlertDialogPortal>
+    <hlm-alert-dialog-header>
+      <h3 hlmAlertDialogTitle>{{ title() }}</h3>
+      <p hlmAlertDialogDescription>{{ description() }}</p>
+    </hlm-alert-dialog-header>
+    <hlm-alert-dialog-footer>
+      <button
+        type="button"
+        hlmAlertDialogCancel
+        [disabled]="loading()"
+        (click)="onClosed()"
+      >
+        {{ cancelLabel() }}
+      </button>
+      <button
+        type="button"
+        hlmAlertDialogAction
+        [variant]="variant()"
+        [disabled]="loading()"
+        (click)="onConfirm()"
+      >
+        @if (loading()) {
+          <hlm-spinner />
+        }
+        <span>{{ confirmLabel() }}</span>
+      </button>
+    </hlm-alert-dialog-footer>
+  </hlm-alert-dialog-content>
+</hlm-alert-dialog>

@@ -1,0 +1,295 @@
+<hlm-sheet side="right" [state]="open() ? 'open' : 'closed'" (closed)="close()">
+  <hlm-sheet-content
+    *hlmSheetPortal
+    class="w-full sm:max-w-5xl data-[side=right]:sm:max-w-5xl p-0 flex flex-col max-h-dvh"
+  >
+    <hlm-sheet-header class="px-6 py-4 border-b border-border text-left shrink-0">
+      <h3 hlmSheetTitle class="flex items-center gap-2 text-lg font-semibold">
+        <ng-icon name="lucideSlidersHorizontal" class="text-primary" />
+        <span>{{ config().title }}</span>
+      </h3>
+      <p hlmSheetDescription>{{ config().subtitle }}</p>
+    </hlm-sheet-header>
+
+    <div class="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-6">
+      <!-- 1. Selección dinámica de columnas -->
+      <section class="rounded-lg border border-border bg-card p-4 flex flex-col gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <ng-icon name="lucideColumns3" class="text-base text-primary" />
+            <h4 class="text-sm font-semibold text-foreground">Columnas del reporte</h4>
+            <span class="text-xs text-muted-foreground tabular-nums">
+              ({{ visibleColumns().length }} de {{ config().columns.length }} visibles)
+            </span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" hlmBtn variant="outline" size="xs" (click)="selectAllColumns()">
+              Seleccionar todas
+            </button>
+            <button type="button" hlmBtn variant="ghost" size="xs" (click)="resetColumns()">
+              <ng-icon name="lucideRotateCcw" />
+              <span>Restablecer</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 pt-1">
+          @for (col of config().columns; track col.key) {
+            <label
+              class="flex items-center gap-2 rounded-md border border-border/80 bg-background px-2.5 py-2 text-xs font-medium text-foreground cursor-pointer hover:bg-muted/60 transition-colors"
+            >
+              <hlm-checkbox
+                [checked]="isColumnVisible(col.key)"
+                [disabled]="isColumnVisible(col.key) && visibleColumns().length <= 1"
+                (checkedChange)="toggleColumn(col.key, $event)"
+              />
+              <span class="truncate">{{ col.label }}</span>
+            </label>
+          }
+        </div>
+      </section>
+
+      <!-- 2. Filtros y condiciones dinámicas -->
+      <section class="rounded-lg border border-border bg-card p-4 flex flex-col gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <ng-icon name="lucideFilter" class="text-base text-primary" />
+            <h4 class="text-sm font-semibold text-foreground">Filtros y condiciones</h4>
+          </div>
+          <button type="button" hlmBtn variant="ghost" size="xs" (click)="clearFilters()">
+            Limpiar filtros
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-medium text-muted-foreground" for="report-search">
+              Búsqueda rápida
+            </label>
+            <div class="relative">
+              <ng-icon
+                name="lucideSearch"
+                class="text-muted-foreground pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm"
+              />
+              <input
+                hlmInput
+                id="report-search"
+                type="text"
+                [value]="searchText()"
+                (input)="onSearchChange($any($event.target).value)"
+                placeholder="Filtrar por texto..."
+                class="pl-8"
+              />
+            </div>
+          </div>
+
+          @for (filter of config().filters; track filter.key) {
+            @if (filter.type === 'select') {
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-medium text-muted-foreground">
+                  {{ filter.label }}
+                </label>
+                <hlm-native-select
+                  class="w-full"
+                  selectClass="w-full"
+                  [value]="selectFilterValues()[filter.key] ?? 'all'"
+                  (valueChange)="onSelectFilterChange(filter.key, $event)"
+                >
+                  <option hlmNativeSelectOption value="all">Todos</option>
+                  @for (opt of filter.options; track opt.value) {
+                    <option hlmNativeSelectOption [value]="opt.value">{{ opt.label }}</option>
+                  }
+                </hlm-native-select>
+              </div>
+            } @else if (filter.type === 'boolean') {
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-medium text-muted-foreground">
+                  {{ filter.label }}
+                </label>
+                <hlm-native-select
+                  class="w-full"
+                  selectClass="w-full"
+                  [value]="booleanFilterValues()[filter.key] ?? 'all'"
+                  (valueChange)="onBooleanFilterChange(filter.key, $event)"
+                >
+                  <option hlmNativeSelectOption value="all">Todos</option>
+                  <option hlmNativeSelectOption value="true">
+                    {{ filter.trueLabel ?? 'Sí' }}
+                  </option>
+                  <option hlmNativeSelectOption value="false">
+                    {{ filter.falseLabel ?? 'No' }}
+                  </option>
+                </hlm-native-select>
+              </div>
+            } @else if (filter.type === 'date-range') {
+              <div class="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-1">
+                <span class="text-xs font-medium text-muted-foreground">{{ filter.label }}</span>
+                <div class="grid grid-cols-2 gap-2">
+                  <input
+                    hlmInput
+                    type="date"
+                    [value]="getDateBound(filter.key, 'from')"
+                    (input)="onDateRangeChange(filter.key, 'from', $any($event.target).value)"
+                    [attr.aria-label]="filter.label + ' desde'"
+                  />
+                  <input
+                    hlmInput
+                    type="date"
+                    [value]="getDateBound(filter.key, 'to')"
+                    (input)="onDateRangeChange(filter.key, 'to', $any($event.target).value)"
+                    [attr.aria-label]="filter.label + ' hasta'"
+                  />
+                </div>
+              </div>
+            }
+          }
+        </div>
+      </section>
+
+      <!-- 3. Tarjetas resumen en vivo -->
+      <section class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        @for (card of computedSummary(); track card.label) {
+          <div class="rounded-lg border border-border bg-card px-4 py-3 flex flex-col gap-1">
+            <span class="text-xs font-medium text-muted-foreground">{{ card.label }}</span>
+            <span class="text-lg font-semibold text-foreground tabular-nums">{{ card.value }}</span>
+          </div>
+        }
+      </section>
+
+      <!-- 4. Vista previa en tiempo real -->
+      <section class="rounded-lg border border-border bg-card p-4 flex flex-col gap-3">
+        <div class="flex items-center justify-between gap-2">
+          <h4 class="text-sm font-semibold text-foreground">Vista previa en tiempo real</h4>
+          <span class="text-xs text-muted-foreground tabular-nums">
+            {{ filteredRows().length }} registros coincidentes
+          </span>
+        </div>
+
+        @if (loading()) {
+          <div class="py-10 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <hlm-spinner />
+            <span>Cargando datos para el reporte...</span>
+          </div>
+        } @else if (filteredRows().length === 0) {
+          <div hlmEmpty class="py-8">
+            <div hlmEmptyHeader>
+              <div hlmEmptyMedia variant="icon">
+                <ng-icon name="lucideSearch" />
+              </div>
+              <h4 hlmEmptyTitle>Sin registros coincidentes</h4>
+              <p hlmEmptyDescription>
+                Ajuste los filtros aplicados para visualizar registros en el reporte.
+              </p>
+            </div>
+          </div>
+        } @else {
+          <div hlmTableContainer class="rounded-md border border-border max-h-96 overflow-auto">
+            <table hlmTable>
+              <thead hlmTHead class="bg-muted/60 sticky top-0 z-10">
+                <tr hlmTr>
+                  @for (col of visibleColumns(); track col.key) {
+                    <th
+                      hlmTh
+                      [class]="
+                        col.align === 'right'
+                          ? 'text-end'
+                          : col.align === 'center'
+                            ? 'text-center'
+                            : 'text-start'
+                      "
+                    >
+                      {{ col.label }}
+                    </th>
+                  }
+                </tr>
+              </thead>
+              <tbody hlmTBody>
+                @for (row of previewRows(); track $index) {
+                  <tr hlmTr>
+                    @for (col of visibleColumns(); track col.key) {
+                      <td
+                        hlmTd
+                        [class]="
+                          col.align === 'right'
+                            ? 'text-end tabular-nums'
+                            : col.align === 'center'
+                              ? 'text-center'
+                              : ''
+                        "
+                      >
+                        {{ formatCell(col, row) }}
+                      </td>
+                    }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <app-table-pagination
+            [totalItems]="filteredRows().length"
+            [page]="previewPage()"
+            [pageSize]="previewPageSize()"
+            (pageChange)="previewPage.set($event)"
+            (pageSizeChange)="previewPageSize.set($event); previewPage.set(1)"
+          />
+        }
+      </section>
+    </div>
+
+    <hlm-sheet-footer
+      class="px-6 py-4 border-t border-border bg-card flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0"
+    >
+      <span class="text-xs text-muted-foreground tabular-nums">
+        Se exportarán exactamente {{ visibleColumns().length }} columnas y
+        {{ filteredRows().length }} filas filtradas.
+      </span>
+
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <button
+          type="button"
+          hlmBtn
+          variant="outline"
+          [disabled]="filteredRows().length === 0 || exportingFormat() !== null"
+          (click)="exportCsv()"
+        >
+          @if (exportingFormat() === 'csv') {
+            <hlm-spinner />
+          } @else {
+            <ng-icon name="lucideDownload" />
+          }
+          <span>CSV (UTF-8)</span>
+        </button>
+
+        <button
+          type="button"
+          hlmBtn
+          variant="outline"
+          [disabled]="filteredRows().length === 0 || exportingFormat() !== null"
+          (click)="exportXlsx()"
+        >
+          @if (exportingFormat() === 'xlsx') {
+            <hlm-spinner />
+          } @else {
+            <ng-icon name="lucideFileSpreadsheet" />
+          }
+          <span>Excel (.xlsx)</span>
+        </button>
+
+        <button
+          type="button"
+          hlmBtn
+          [disabled]="filteredRows().length === 0 || exportingFormat() !== null"
+          (click)="exportPdf()"
+        >
+          @if (exportingFormat() === 'pdf') {
+            <hlm-spinner />
+          } @else {
+            <ng-icon name="lucideFileText" />
+          }
+          <span>PDF Institucional</span>
+        </button>
+      </div>
+    </hlm-sheet-footer>
+  </hlm-sheet-content>
+</hlm-sheet>

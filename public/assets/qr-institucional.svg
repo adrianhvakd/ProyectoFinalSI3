@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" width="220" height="220" role="img" aria-label="Código QR Institucional Importadora B2B">
+  <rect width="220" height="220" rx="12" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2" />
+  <g fill="#0F172A">
+    <!-- Top-left finder -->
+    <path d="M22 22h56v56H22V22zm10 10v36h36V32H32z" />
+    <rect x="42" y="42" width="16" height="16" />
+    <!-- Top-right finder -->
+    <path d="M142 22h56v56h-56V22zm10 10v36h36V32h-36z" />
+    <rect x="162" y="42" width="16" height="16" />
+    <!-- Bottom-left finder -->
+    <path d="M22 142h56v56H22v-56zm10 10v36h36v-36H32z" />
+    <rect x="42" y="162" width="16" height="16" />
+    <!-- Timing & data modules -->
+    <rect x="90" y="22" width="10" height="10" />
+    <rect x="110" y="22" width="10" height="10" />
+    <rect x="90" y="42" width="10" height="10" />
+    <rect x="100" y="52" width="10" height="10" />
+    <rect x="120" y="42" width="10" height="10" />
+    <rect x="90" y="72" width="20" height="10" />
+    <rect x="120" y="62" width="10" height="20" />
+    <rect x="22" y="90" width="10" height="10" />
+    <rect x="42" y="90" width="20" height="10" />
+    <rect x="72" y="90" width="10" height="20" />
+    <rect x="22" y="110" width="20" height="10" />
+    <rect x="52" y="110" width="10" height="10" />
+    <rect x="90" y="90" width="40" height="40" rx="6" fill="#334155" />
+    <rect x="102" y="102" width="16" height="16" fill="#FFFFFF" />
+    <rect x="106" y="106" width="8" height="8" fill="#059669" />
+    <rect x="142" y="90" width="10" height="20" />
+    <rect x="162" y="90" width="20" height="10" />
+    <rect x="188" y="90" width="10" height="20" />
+    <rect x="152" y="112" width="20" height="10" />
+    <rect x="142" y="132" width="10" height="10" />
+    <rect x="162" y="132" width="20" height="10" />
+    <rect x="188" y="132" width="10" height="10" />
+    <rect x="90" y="142" width="10" height="20" />
+    <rect x="110" y="142" width="20" height="10" />
+    <rect x="100" y="172" width="20" height="10" />
+    <rect x="90" y="188" width="10" height="10" />
+    <rect x="120" y="162" width="10" height="20" />
+    <rect x="142" y="152" width="36" height="10" />
+    <rect x="188" y="152" width="10" height="20" />
+    <rect x="142" y="172" width="10" height="26" />
+    <rect x="162" y="172" width="16" height="16" />
+    <rect x="188" y="188" width="10" height="10" />
+  </g>
+</svg>

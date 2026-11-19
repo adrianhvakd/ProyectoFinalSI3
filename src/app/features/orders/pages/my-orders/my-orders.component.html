@@ -1,0 +1,375 @@
+<div class="flex flex-col gap-6">
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold text-foreground tracking-tight">Mis Pedidos</h1>
+      <p class="text-sm text-muted-foreground">
+        Seguimiento de pedidos mayoristas, estado de verificación de pagos y reenvío de
+        comprobantes QR observados.
+      </p>
+    </div>
+
+    <a hlmBtn routerLink="/orders/catalog">
+      <ng-icon name="lucideShoppingCart" />
+      <span>Nuevo Pedido Mayorista</span>
+    </a>
+  </div>
+
+  <div
+    class="rounded-lg border border-border bg-card p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3"
+  >
+    <div class="relative flex-1 max-w-md">
+      <ng-icon
+        name="lucideSearch"
+        class="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base"
+      />
+      <input
+        hlmInput
+        type="text"
+        [value]="searchTerm()"
+        (input)="searchTerm.set($any($event.target).value); page.set(1)"
+        placeholder="Buscar por N° pedido, método o estado..."
+        aria-label="Buscar pedido"
+        class="pl-9"
+      />
+    </div>
+
+    <div class="flex items-center gap-2">
+      <hlm-native-select
+        [value]="statusFilter()"
+        (valueChange)="statusFilter.set($event || 'all'); page.set(1)"
+        aria-label="Filtrar por estado del pedido"
+      >
+        <option hlmNativeSelectOption value="all">Todos los pedidos</option>
+        @for (est of estadosPedido; track est) {
+          <option hlmNativeSelectOption [value]="est">{{ est }}</option>
+        }
+      </hlm-native-select>
+
+      <button
+        type="button"
+        hlmBtn
+        variant="ghost"
+        size="icon"
+        (click)="loadOrders()"
+        aria-label="Actualizar mis pedidos"
+      >
+        <ng-icon name="lucideRefreshCw" />
+      </button>
+    </div>
+  </div>
+
+  @if (error()) {
+    <div hlmAlert variant="destructive">
+      <h3 hlmAlertTitle>Error de carga</h3>
+      <p hlmAlertDescription>{{ error() }}</p>
+    </div>
+  }
+
+  <section class="rounded-lg border border-border bg-card p-4 flex flex-col gap-4">
+    @if (loading()) {
+      <div class="flex flex-col gap-3">
+        @for (row of [1, 2, 3, 4]; track row) {
+          <hlm-skeleton class="h-12 w-full rounded-md" />
+        }
+      </div>
+    } @else if (filteredOrders().length === 0) {
+      <div hlmEmpty class="py-12">
+        <div hlmEmptyHeader>
+          <div hlmEmptyMedia variant="icon">
+            <ng-icon name="lucideClipboardList" />
+          </div>
+          <h3 hlmEmptyTitle>Aún no registra pedidos</h3>
+          <p hlmEmptyDescription>
+            Explore el catálogo mayorista para generar su primer pedido de materias primas.
+          </p>
+        </div>
+      </div>
+    } @else {
+      <div hlmTableContainer>
+        <table hlmTable>
+          <thead hlmTHead>
+            <tr hlmTr>
+              <th hlmTh>N° Pedido</th>
+              <th hlmTh>Fecha</th>
+              <th hlmTh>Entrega</th>
+              <th hlmTh class="text-end">Total</th>
+              <th hlmTh>Método / Pago</th>
+              <th hlmTh>Estado Pedido</th>
+              <th hlmTh class="text-end">Acciones</th>
+            </tr>
+          </thead>
+          <tbody hlmTBody>
+            @for (order of paginatedOrders(); track order.numero_pedido) {
+              @let pago = getPago(order);
+              <tr hlmTr>
+                <td hlmTd class="font-mono text-xs font-semibold text-foreground tabular-nums">
+                  #{{ order.numero_pedido }}
+                </td>
+                <td hlmTd class="tabular-nums text-muted-foreground">
+                  {{ order.fecha_creacion | date: 'dd/MM/yyyy HH:mm' }}
+                </td>
+                <td hlmTd>
+                  <div class="flex flex-col">
+                    <span class="text-sm text-foreground">{{ order.modalidad_entrega }}</span>
+                    @if (order.direccion_destino) {
+                      <span class="text-xs text-muted-foreground max-w-xs truncate">
+                        {{ order.direccion_destino }}
+                      </span>
+                    }
+                  </div>
+                </td>
+                <td hlmTd class="text-end font-semibold tabular-nums">
+                  {{ order.subtotal_mayorista | currency: 'BOB' : 'Bs ' : '1.2-2' }}
+                </td>
+                <td hlmTd>
+                  @if (pago) {
+                    <div class="flex flex-col gap-1">
+                      <div class="flex items-center gap-1.5">
+                        <span hlmBadge variant="outline">{{ pago.metodo }}</span>
+                        <app-status-badge [status]="pago.estado" kind="pago" />
+                      </div>
+                      @if (pago.estado === 'Rechazado' && pago.motivo_observacion) {
+                        <p class="text-xs text-destructive max-w-xs truncate">
+                          Motivo: {{ pago.motivo_observacion }}
+                        </p>
+                      }
+                    </div>
+                  } @else {
+                    <span class="text-muted-foreground">—</span>
+                  }
+                </td>
+                <td hlmTd>
+                  <app-status-badge [status]="order.estado_pedido" kind="pedido" />
+                </td>
+                <td hlmTd class="text-end">
+                  <div class="inline-flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      hlmBtn
+                      variant="ghost"
+                      size="sm"
+                      (click)="detailOrder.set(order)"
+                    >
+                      <ng-icon name="lucideEye" />
+                      <span>Detalle</span>
+                    </button>
+                    @if (pago?.estado === 'Rechazado' && pago?.metodo === 'QR') {
+                      <button
+                        type="button"
+                        hlmBtn
+                        size="sm"
+                        (click)="openResubmitDialog(order)"
+                      >
+                        <ng-icon name="lucideUpload" />
+                        <span>Volver a subir comprobante QR</span>
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <app-table-pagination
+        [totalItems]="filteredOrders().length"
+        [page]="page()"
+        [pageSize]="pageSize()"
+        (pageChange)="page.set($event)"
+        (pageSizeChange)="pageSize.set($event); page.set(1)"
+      />
+    }
+  </section>
+</div>
+
+<!-- Dialog Detalle del Pedido -->
+<hlm-dialog [state]="detailOrder() !== null ? 'open' : 'closed'" (closed)="detailOrder.set(null)">
+  <hlm-dialog-content *hlmDialogPortal class="sm:max-w-2xl max-h-[85dvh] overflow-y-auto">
+    @if (detailOrder(); as order) {
+      @let pago = getPago(order);
+      <hlm-dialog-header>
+        <h3 hlmDialogTitle>Detalle de Pedido #{{ order.numero_pedido }}</h3>
+        <p hlmDialogDescription>
+          Registrado el {{ order.fecha_creacion | date: 'dd/MM/yyyy HH:mm' }} ·
+          {{ order.modalidad_entrega }}
+        </p>
+      </hlm-dialog-header>
+
+      <div class="flex flex-col gap-4 pt-2">
+        @if (pago?.estado === 'Rechazado') {
+          <div hlmAlert variant="destructive">
+            <ng-icon name="lucideAlertTriangle" />
+            <h4 hlmAlertTitle>Comprobante QR rechazado por Ventas y Caja</h4>
+            <p hlmAlertDescription>
+              {{ pago?.motivo_observacion || 'Verifique el comprobante y vuelva a enviarlo.' }}
+            </p>
+          </div>
+        }
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-lg border border-border bg-muted/30 p-3 text-xs">
+          <div>
+            <span class="text-muted-foreground block">Estado Pedido</span>
+            <div class="mt-1">
+              <app-status-badge [status]="order.estado_pedido" kind="pedido" />
+            </div>
+          </div>
+          <div>
+            <span class="text-muted-foreground block">Estado Pago</span>
+            <div class="mt-1">
+              @if (pago) {
+                <app-status-badge [status]="pago.estado" kind="pago" />
+              }
+            </div>
+          </div>
+          <div>
+            <span class="text-muted-foreground block">Estado Entrega</span>
+            <span class="font-medium text-foreground block mt-1">{{ order.estado_entrega }}</span>
+          </div>
+          <div>
+            <span class="text-muted-foreground block">Total Mayorista</span>
+            <span class="text-sm font-bold text-foreground tabular-nums block mt-1">
+              {{ order.subtotal_mayorista | currency: 'BOB' : 'Bs ' : '1.2-2' }}
+            </span>
+          </div>
+        </div>
+
+        <div hlmTableContainer class="rounded-md border border-border">
+          <table hlmTable>
+            <thead hlmTHead>
+              <tr hlmTr>
+                <th hlmTh>Materia Prima</th>
+                <th hlmTh>Lote</th>
+                <th hlmTh class="text-end">Cantidad</th>
+                <th hlmTh class="text-end">Precio Unit.</th>
+                <th hlmTh class="text-end">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody hlmTBody>
+              @for (det of order.detalle_pedido ?? []; track det.id_detalle) {
+                <tr hlmTr>
+                  <td hlmTd class="font-medium">{{ getItemMaterialName(det.materia_prima) }}</td>
+                  <td hlmTd class="font-mono text-xs">{{ getItemLotCode(det.lote) }}</td>
+                  <td hlmTd class="text-end tabular-nums">
+                    {{ det.cantidad_solicitada | number: '1.2-2' }}
+                    {{ getItemUnit(det.materia_prima) }}
+                  </td>
+                  <td hlmTd class="text-end tabular-nums">
+                    {{ det.precio_unitario_mayorista | currency: 'BOB' : 'Bs ' : '1.2-2' }}
+                  </td>
+                  <td hlmTd class="text-end font-semibold tabular-nums">
+                    {{ det.subtotal | currency: 'BOB' : 'Bs ' : '1.2-2' }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <hlm-dialog-footer class="pt-1">
+          @if (pago?.estado === 'Rechazado' && pago?.metodo === 'QR') {
+            <button
+              type="button"
+              hlmBtn
+              (click)="detailOrder.set(null); openResubmitDialog(order)"
+            >
+              <ng-icon name="lucideUpload" />
+              <span>Volver a subir comprobante QR</span>
+            </button>
+          }
+          <button type="button" hlmBtn variant="outline" (click)="detailOrder.set(null)">
+            Cerrar
+          </button>
+        </hlm-dialog-footer>
+      </div>
+    }
+  </hlm-dialog-content>
+</hlm-dialog>
+
+<!-- Dialog Reenvío de Comprobante QR -->
+<hlm-dialog [state]="resubmitOrder() !== null ? 'open' : 'closed'" (closed)="closeResubmitDialog()">
+  <hlm-dialog-content *hlmDialogPortal class="sm:max-w-md">
+    @if (resubmitOrder(); as order) {
+      @let pago = getPago(order);
+      <hlm-dialog-header>
+        <h3 hlmDialogTitle>Reenviar Comprobante QR · Pedido #{{ order.numero_pedido }}</h3>
+        <p hlmDialogDescription>
+          Monto total: {{ order.subtotal_mayorista | currency: 'BOB' : 'Bs ' : '1.2-2' }}
+        </p>
+      </hlm-dialog-header>
+
+      <div class="flex flex-col gap-4 pt-2">
+        @if (pago?.motivo_observacion) {
+          <div hlmAlert variant="destructive">
+            <ng-icon name="lucideAlertTriangle" />
+            <h4 hlmAlertTitle>Observación de Caja</h4>
+            <p hlmAlertDescription>{{ pago?.motivo_observacion }}</p>
+          </div>
+        }
+
+        <div class="flex flex-col gap-2">
+          <label
+            for="resubmit-qr-input"
+            class="flex items-center justify-center gap-2 rounded-md border border-dashed border-input bg-background px-4 py-5 text-sm font-medium text-foreground cursor-pointer hover:bg-muted/50 transition-colors"
+          >
+            <ng-icon name="lucideUpload" class="text-base text-primary" />
+            <span>
+              {{
+                resubmitFile()
+                  ? resubmitFile()!.name
+                  : 'Seleccionar nuevo comprobante (PNG, JPG o PDF · máx. 5 MB)'
+              }}
+            </span>
+          </label>
+          <input
+            id="resubmit-qr-input"
+            type="file"
+            accept=".png,.jpg,.jpeg,.pdf,image/png,image/jpeg,application/pdf"
+            class="sr-only"
+            (change)="onResubmitFileSelected($event)"
+          />
+
+          @if (resubmitPreviewUrl(); as preview) {
+            <img
+              [src]="preview"
+              alt="Vista previa de nuevo comprobante QR"
+              class="max-h-48 rounded-md border border-border object-contain mx-auto"
+            />
+          }
+
+          @if (resubmitFileError()) {
+            <p class="text-xs text-destructive font-medium" role="alert">
+              {{ resubmitFileError() }}
+            </p>
+          }
+        </div>
+
+        <hlm-dialog-footer class="pt-1">
+          <button
+            type="button"
+            hlmBtn
+            variant="outline"
+            [disabled]="resubmitting()"
+            (click)="closeResubmitDialog()"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            hlmBtn
+            [disabled]="!resubmitFile() || resubmitting()"
+            (click)="submitNewReceipt()"
+          >
+            @if (resubmitting()) {
+              <hlm-spinner />
+              <span>Enviando...</span>
+            } @else {
+              <ng-icon name="lucideUpload" />
+              <span>Enviar Nuevo Comprobante</span>
+            }
+          </button>
+        </hlm-dialog-footer>
+      </div>
+    }
+  </hlm-dialog-content>
+</hlm-dialog>

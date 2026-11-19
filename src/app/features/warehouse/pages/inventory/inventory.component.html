@@ -1,0 +1,420 @@
+<div class="flex flex-col gap-6">
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold text-foreground tracking-tight">
+        Inventario de Lotes y Calidad
+      </h1>
+      <p class="text-sm text-muted-foreground">
+        Consulta maestra de inventario por estado, historial de evaluaciones y resolución de lotes
+        observados.
+      </p>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <button type="button" hlmBtn variant="outline" (click)="openReportDrawer()">
+        <ng-icon name="lucideFileBarChart2" />
+        <span>Generar Reporte</span>
+      </button>
+      <a hlmBtn variant="outline" routerLink="/warehouse/quality-control">
+        <ng-icon name="lucideShieldCheck" />
+        <span>Control de Calidad</span>
+      </a>
+      <a hlmBtn routerLink="/warehouse/reception">
+        <ng-icon name="lucidePackagePlus" />
+        <span>Recepcionar Lote</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Tabs y búsqueda -->
+  <div class="rounded-lg border border-border bg-card p-4 flex flex-col gap-4">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+      <hlm-tabs [tab]="activeTab()" (tabActivated)="onTabChanged($event)" class="w-full lg:w-auto">
+        <hlm-tabs-list class="flex-wrap h-auto">
+          <button type="button" hlmTabsTrigger="all">
+            Todos ({{ tabCounts().all }})
+          </button>
+          <button type="button" hlmTabsTrigger="Aprobado / Disponible">
+            Aprobados ({{ tabCounts().approved }})
+          </button>
+          <button type="button" hlmTabsTrigger="Observado">
+            Observados ({{ tabCounts().observed }})
+          </button>
+          <button type="button" hlmTabsTrigger="En revisión">
+            En revisión ({{ tabCounts().review }})
+          </button>
+          <button type="button" hlmTabsTrigger="Devuelto">
+            Devueltos ({{ tabCounts().returned }})
+          </button>
+        </hlm-tabs-list>
+      </hlm-tabs>
+
+      <div class="flex items-center gap-2">
+        <div class="relative flex-1 sm:w-72">
+          <ng-icon
+            name="lucideSearch"
+            class="text-muted-foreground pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base"
+          />
+          <input
+            hlmInput
+            type="text"
+            [value]="searchTerm()"
+            (input)="onSearch($any($event.target).value)"
+            placeholder="Buscar código, materia o proveedor..."
+            aria-label="Buscar lote en inventario"
+            class="pl-9"
+          />
+        </div>
+        <button
+          type="button"
+          hlmBtn
+          variant="ghost"
+          size="icon"
+          (click)="loadLots()"
+          aria-label="Actualizar inventario"
+        >
+          <ng-icon name="lucideRefreshCw" />
+        </button>
+      </div>
+    </div>
+
+    @if (error()) {
+      <div hlmAlert variant="destructive">
+        <h3 hlmAlertTitle>Error de carga</h3>
+        <p hlmAlertDescription>{{ error() }}</p>
+      </div>
+    }
+
+    @if (loading()) {
+      <div class="flex flex-col gap-3">
+        @for (row of [1, 2, 3, 4, 5]; track row) {
+          <hlm-skeleton class="h-12 w-full rounded-md" />
+        }
+      </div>
+    } @else if (filteredLots().length === 0) {
+      <div hlmEmpty class="py-12">
+        <div hlmEmptyHeader>
+          <div hlmEmptyMedia variant="icon">
+            <ng-icon name="lucideWarehouse" />
+          </div>
+          <h3 hlmEmptyTitle>Sin lotes en esta categoría</h3>
+          <p hlmEmptyDescription>
+            No existen lotes coincidentes con el filtro o estado seleccionado.
+          </p>
+        </div>
+      </div>
+    } @else {
+      <div hlmTableContainer>
+        <table hlmTable>
+          <thead hlmTHead>
+            <tr hlmTr>
+              <th hlmTh>Código Lote</th>
+              <th hlmTh>Materia Prima</th>
+              <th hlmTh>Proveedor</th>
+              <th hlmTh class="text-end">Recibido</th>
+              <th hlmTh class="text-end">Disponible</th>
+              <th hlmTh>Vencimiento</th>
+              <th hlmTh>Estado</th>
+              <th hlmTh class="text-end">Acciones</th>
+            </tr>
+          </thead>
+          <tbody hlmTBody>
+            @for (lote of paginatedLots(); track lote.id_lote) {
+              @let mp = getMaterial(lote);
+              @let prov = getProvider(lote);
+              <tr hlmTr>
+                <td hlmTd class="font-mono text-xs font-semibold text-foreground tabular-nums">
+                  {{ lote.codigo_unico }}
+                </td>
+                <td hlmTd>
+                  <div class="flex flex-col">
+                    <span class="font-medium text-foreground">{{ mp?.nombre ?? '—' }}</span>
+                    <span class="text-xs font-mono text-muted-foreground">{{ mp?.codigo ?? '' }}</span>
+                  </div>
+                </td>
+                <td hlmTd class="text-muted-foreground">{{ prov?.razon_social ?? '—' }}</td>
+                <td hlmTd class="text-end tabular-nums text-muted-foreground">
+                  {{ lote.cantidad_recibida | number: '1.2-2' }} {{ mp?.unidad_medida ?? '' }}
+                </td>
+                <td hlmTd class="text-end tabular-nums font-semibold text-foreground">
+                  {{ lote.cantidad_disponible | number: '1.2-2' }} {{ mp?.unidad_medida ?? '' }}
+                </td>
+                <td hlmTd class="tabular-nums">
+                  <div class="flex items-center gap-1.5">
+                    <span>{{ lote.fecha_vencimiento | date: 'dd/MM/yyyy' }}</span>
+                    @if (isExpired(lote.fecha_vencimiento)) {
+                      <span hlmBadge variant="destructive">Vencido</span>
+                    } @else if (isExpiringSoon(lote.fecha_vencimiento)) {
+                      <span
+                        hlmBadge
+                        variant="outline"
+                        class="border-amber-300 bg-amber-50 text-amber-900"
+                      >
+                        Por vencer
+                      </span>
+                    }
+                  </div>
+                </td>
+                <td hlmTd>
+                  <app-status-badge [status]="lote.estado" kind="lote" />
+                </td>
+                <td hlmTd class="text-end">
+                  <div class="inline-flex items-center gap-1">
+                    <button
+                      type="button"
+                      hlmBtn
+                      variant="ghost"
+                      size="sm"
+                      (click)="openHistory(lote)"
+                    >
+                      <ng-icon name="lucideHistory" />
+                      <span>Historial ({{ lote.control_calidad?.length ?? 0 }})</span>
+                    </button>
+
+                    @if (lote.estado === 'Observado') {
+                      <button
+                        type="button"
+                        hlmBtn
+                        size="sm"
+                        (click)="openResolveDialog(lote)"
+                      >
+                        <ng-icon name="lucideWrench" />
+                        <span>Resolver Observación</span>
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <app-table-pagination
+        [totalItems]="filteredLots().length"
+        [page]="page()"
+        [pageSize]="pageSize()"
+        (pageChange)="page.set($event)"
+        (pageSizeChange)="pageSize.set($event); page.set(1)"
+      />
+    }
+  </div>
+</div>
+
+<!-- Dialog Historial de Control de Calidad -->
+<hlm-dialog [state]="historyLot() !== null ? 'open' : 'closed'" (closed)="historyLot.set(null)">
+  <hlm-dialog-content *hlmDialogPortal class="sm:max-w-xl max-h-[85dvh] overflow-y-auto">
+    @if (historyLot(); as lote) {
+      <hlm-dialog-header>
+        <h3 hlmDialogTitle>Historial de Inspecciones · {{ lote.codigo_unico }}</h3>
+        <p hlmDialogDescription>
+          {{ getMaterial(lote)?.nombre }} · Recepcionado el
+          {{ lote.fecha_recepcion | date: 'dd/MM/yyyy' }}
+        </p>
+      </hlm-dialog-header>
+
+      <div class="flex flex-col gap-3 pt-2">
+        @if ((lote.control_calidad?.length ?? 0) === 0) {
+          <div hlmEmpty class="py-8">
+            <div hlmEmptyHeader>
+              <div hlmEmptyMedia variant="icon">
+                <ng-icon name="lucideHistory" />
+              </div>
+              <h4 hlmEmptyTitle>Sin evaluaciones registradas</h4>
+              <p hlmEmptyDescription>
+                Este lote aún no ha pasado por una inspección en Control de Calidad.
+              </p>
+            </div>
+          </div>
+        } @else {
+          @for (cc of lote.control_calidad ?? []; track cc.id_control) {
+            <div class="rounded-lg border border-border bg-card p-3.5 flex flex-col gap-2">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <app-status-badge
+                    [status]="cc.cumple_parametros ? 'Cumple' : 'No cumple'"
+                    kind="calidad"
+                  />
+                  <span class="text-xs font-medium text-foreground">
+                    {{ getInspectorName(cc) }}
+                  </span>
+                </div>
+                <span class="text-xs text-muted-foreground tabular-nums">
+                  {{ cc.fecha_evaluacion | date: 'dd/MM/yyyy HH:mm' }}
+                </span>
+              </div>
+
+              @if (cc.informe_tecnico_hallazgos) {
+                <div class="text-xs">
+                  <span class="font-semibold text-foreground block">Informe técnico:</span>
+                  <p class="text-muted-foreground whitespace-pre-line">
+                    {{ cc.informe_tecnico_hallazgos }}
+                  </p>
+                </div>
+              }
+
+              @if (cc.resolucion_secundaria) {
+                <div class="text-xs rounded-md bg-muted/50 p-2.5 border border-border">
+                  <span class="font-semibold text-foreground block">Resolución secundaria:</span>
+                  <p class="text-muted-foreground whitespace-pre-line">
+                    {{ cc.resolucion_secundaria }}
+                  </p>
+                </div>
+              }
+            </div>
+          }
+        }
+      </div>
+
+      <hlm-dialog-footer class="pt-2">
+        <button type="button" hlmBtn variant="outline" (click)="historyLot.set(null)">Cerrar</button>
+      </hlm-dialog-footer>
+    }
+  </hlm-dialog-content>
+</hlm-dialog>
+
+<!-- Dialog Resolver Observación -->
+<hlm-dialog [state]="resolvingLot() !== null ? 'open' : 'closed'" (closed)="closeResolveDialog()">
+  <hlm-dialog-content *hlmDialogPortal class="sm:max-w-lg max-h-[90dvh] overflow-y-auto">
+    @if (resolvingLot(); as lote) {
+      <hlm-dialog-header>
+        <h3 hlmDialogTitle>Resolver Observación · {{ lote.codigo_unico }}</h3>
+        <p hlmDialogDescription>
+          {{ getMaterial(lote)?.nombre }} ({{ lote.cantidad_disponible | number: '1.2-2' }}
+          {{ getMaterial(lote)?.unidad_medida }})
+        </p>
+      </hlm-dialog-header>
+
+      <form
+        [formGroup]="resolveForm"
+        (ngSubmit)="requestConfirmResolve()"
+        class="flex flex-col gap-4 pt-2"
+      >
+        @if (lote.control_calidad?.[0]?.informe_tecnico_hallazgos; as lastHallazgo) {
+          <div hlmAlert>
+            <ng-icon name="lucideAlertTriangle" />
+            <h4 hlmAlertTitle>Hallazgo previo registrado</h4>
+            <p hlmAlertDescription class="whitespace-pre-line">{{ lastHallazgo }}</p>
+          </div>
+        }
+
+        <div hlmField>
+          <span hlmFieldLabel>Decisión técnica secundaria</span>
+          <hlm-radio-group formControlName="aprobado" class="grid grid-cols-1 gap-2.5 pt-1">
+            <label
+              class="flex items-center gap-2.5 rounded-lg border border-border bg-card p-3 cursor-pointer hover:bg-muted/40"
+            >
+              <hlm-radio [value]="true">
+                <hlm-radio-indicator indicator />
+                <div class="flex flex-col">
+                  <span class="text-sm font-medium text-foreground">
+                    Reacondicionar y Aprobar
+                  </span>
+                  <span class="text-xs text-muted-foreground">
+                    Pasa a Aprobado / Disponible y habilita el stock para la venta
+                  </span>
+                </div>
+              </hlm-radio>
+            </label>
+
+            <label
+              class="flex items-center gap-2.5 rounded-lg border border-border bg-card p-3 cursor-pointer hover:bg-muted/40"
+            >
+              <hlm-radio [value]="false">
+                <hlm-radio-indicator indicator />
+                <div class="flex flex-col">
+                  <span class="text-sm font-medium text-destructive">
+                    Dar de baja / Devolver al proveedor
+                  </span>
+                  <span class="text-xs text-muted-foreground">
+                    Pasa a Devuelto de forma definitiva sin sumar al stock
+                  </span>
+                </div>
+              </hlm-radio>
+            </label>
+          </hlm-radio-group>
+        </div>
+
+        <div hlmField>
+          <label hlmFieldLabel for="res-sec">Resolución técnica secundaria *</label>
+          <textarea
+            hlmTextarea
+            id="res-sec"
+            rows="3"
+            formControlName="resolucion_secundaria"
+            placeholder="Documente la acción correctiva aplicada o el motivo de devolución al proveedor..."
+          ></textarea>
+          @if (resolveForm.controls.resolucion_secundaria.hasError('required')) {
+            <hlm-field-error validator="required">
+              La resolución secundaria es obligatoria.
+            </hlm-field-error>
+          }
+          @if (resolveForm.controls.resolucion_secundaria.hasError('minlength')) {
+            <hlm-field-error validator="minlength">
+              Describa la resolución con al menos 10 caracteres.
+            </hlm-field-error>
+          }
+        </div>
+
+        <hlm-dialog-footer class="pt-2">
+          <button
+            type="button"
+            hlmBtn
+            variant="outline"
+            [disabled]="resolvingSubmitting()"
+            (click)="closeResolveDialog()"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            hlmBtn
+            [variant]="resolveApproved() ? 'default' : 'destructive'"
+            [disabled]="resolvingSubmitting()"
+          >
+            <span>
+              {{
+                resolveApproved()
+                  ? 'Aprobar Reacondicionamiento'
+                  : 'Confirmar Devolución'
+              }}
+            </span>
+          </button>
+        </hlm-dialog-footer>
+      </form>
+    }
+  </hlm-dialog-content>
+</hlm-dialog>
+
+<app-confirm-dialog
+  [open]="resolveConfirmOpen()"
+  [title]="
+    resolveApproved()
+      ? '¿Confirmar reacondicionamiento del lote?'
+      : '¿Confirmar devolución definitiva al proveedor?'
+  "
+  [description]="
+    resolveApproved()
+      ? 'El lote ' +
+        (resolvingLot()?.codigo_unico ?? '') +
+        ' pasará a Aprobado / Disponible y quedará habilitado para pedidos mayoristas.'
+      : 'El lote ' +
+        (resolvingLot()?.codigo_unico ?? '') +
+        ' cambiará a estado Devuelto de forma irreversible.'
+  "
+  [confirmLabel]="
+    resolveApproved() ? 'Sí, aprobar lote' : 'Sí, devolver lote'
+  "
+  [variant]="resolveApproved() ? 'default' : 'destructive'"
+  [loading]="resolvingSubmitting()"
+  (confirmed)="confirmResolve()"
+  (cancelled)="resolveConfirmOpen.set(false)"
+/>
+
+<app-dynamic-report-drawer
+  [open]="reportOpen()"
+  [config]="reportConfig()"
+  [data]="reportRows()"
+  [loading]="reportLoading()"
+  (openChange)="reportOpen.set($event)"
+/>

@@ -1,12 +1,12 @@
-import { Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { HlmToasterImports } from '@spartan-ng/helm/sonner';
 
 @Component({
-  imports: [RouterOutlet],
   selector: 'app-root',
-  styleUrl: './app.css',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [RouterOutlet, HlmToasterImports],
   templateUrl: './app.html',
+  styleUrl: './app.css',
 })
-export class App {
-  protected readonly title = signal('final');
-}
+export class App {}
