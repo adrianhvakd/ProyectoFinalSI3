@@ -18,10 +18,14 @@ export interface UpdateUserPayload {
   placa?: string;
   capacidad_kg?: number;
   disponible?: boolean;
+  nit?: string;
+  razon_social?: string;
+  telefono?: string;
+  direccion?: string;
 }
 
 const SELECT_USERS =
-  'id_usuario, email, nombre_completo, rol, activo, camion(id_camion, id_usuario, placa, capacidad_kg, disponible)';
+  'id_usuario, email, nombre_completo, rol, activo, camion(id_camion, id_usuario, placa, capacidad_kg, disponible), empresa_cliente(id_empresa_cliente, id_usuario, nit, razon_social, telefono, direccion)';
 
 @Injectable({
   providedIn: 'root',
@@ -75,7 +79,10 @@ export class UsersService {
   async updateUser(idUsuario: string, payload: UpdateUserPayload): Promise<void> {
     const { error: userError } = await this.supabase.client
       .from('usuario')
-      .update({ nombre_completo: payload.nombre_completo })
+      .update({
+        nombre_completo: payload.nombre_completo,
+        rol: payload.rol,
+      })
       .eq('id_usuario', idUsuario);
 
     if (userError) {
@@ -83,40 +90,18 @@ export class UsersService {
     }
 
     if (payload.rol === 'Camionero') {
-      const camionPayload = {
+      await this.upsertTruckProfile(idUsuario, {
         placa: payload.placa ?? '',
         capacidad_kg: Number(payload.capacidad_kg ?? 0),
         disponible: payload.disponible ?? true,
-      };
-
-      const { data: existingCamion } = await this.supabase.client
-        .from('camion')
-        .select('id_camion')
-        .eq('id_usuario', idUsuario)
-        .maybeSingle();
-
-      if (existingCamion) {
-        const { error: camionError } = await this.supabase.client
-          .from('camion')
-          .update(camionPayload)
-          .eq('id_usuario', idUsuario);
-
-        if (camionError) {
-          throw new Error(
-            translateSupabaseError(camionError, 'No se pudo actualizar los datos del camión.'),
-          );
-        }
-      } else {
-        const { error: insertError } = await this.supabase.client
-          .from('camion')
-          .insert({ id_usuario: idUsuario, ...camionPayload });
-
-        if (insertError) {
-          throw new Error(
-            translateSupabaseError(insertError, 'No se pudo registrar el camión asignado.'),
-          );
-        }
-      }
+      });
+    } else if (payload.rol === 'Empresa Cliente') {
+      await this.upsertClientCompanyProfile(idUsuario, {
+        nit: payload.nit ?? '',
+        razon_social: payload.razon_social ?? '',
+        telefono: payload.telefono ?? '',
+        direccion: payload.direccion ?? '',
+      });
     }
   }
 
@@ -128,6 +113,77 @@ export class UsersService {
 
     if (error) {
       throw new Error(translateSupabaseError(error, 'No se pudo cambiar el estado del usuario.'));
+    }
+  }
+
+  private async upsertTruckProfile(
+    idUsuario: string,
+    camionPayload: { placa: string; capacidad_kg: number; disponible: boolean },
+  ): Promise<void> {
+    const { data: existingCamion } = await this.supabase.client
+      .from('camion')
+      .select('id_camion')
+      .eq('id_usuario', idUsuario)
+      .maybeSingle();
+
+    if (existingCamion) {
+      const { error: camionError } = await this.supabase.client
+        .from('camion')
+        .update(camionPayload)
+        .eq('id_usuario', idUsuario);
+
+      if (camionError) {
+        throw new Error(
+          translateSupabaseError(camionError, 'No se pudo actualizar los datos del camión.'),
+        );
+      }
+    } else {
+      const { error: insertError } = await this.supabase.client
+        .from('camion')
+        .insert({ id_usuario: idUsuario, ...camionPayload });
+
+      if (insertError) {
+        throw new Error(
+          translateSupabaseError(insertError, 'No se pudo registrar el camión asignado.'),
+        );
+      }
+    }
+  }
+
+  private async upsertClientCompanyProfile(
+    idUsuario: string,
+    empresaPayload: { nit: string; razon_social: string; telefono: string; direccion: string },
+  ): Promise<void> {
+    const { data: existingEmpresa } = await this.supabase.client
+      .from('empresa_cliente')
+      .select('id_empresa_cliente')
+      .eq('id_usuario', idUsuario)
+      .maybeSingle();
+
+    if (existingEmpresa) {
+      const { error: empresaError } = await this.supabase.client
+        .from('empresa_cliente')
+        .update(empresaPayload)
+        .eq('id_usuario', idUsuario);
+
+      if (empresaError) {
+        throw new Error(
+          translateSupabaseError(
+            empresaError,
+            'No se pudo actualizar la ficha de empresa cliente.',
+          ),
+        );
+      }
+    } else {
+      const { error: insertError } = await this.supabase.client
+        .from('empresa_cliente')
+        .insert({ id_usuario: idUsuario, ...empresaPayload });
+
+      if (insertError) {
+        throw new Error(
+          translateSupabaseError(insertError, 'No se pudo crear la ficha de empresa cliente.'),
+        );
+      }
     }
   }
 }

@@ -1,0 +1,238 @@
+<div class="min-h-dvh bg-background text-foreground flex flex-col">
+  <!-- Barra superior pública -->
+  <header class="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur-sm">
+    <div class="mx-auto max-w-6xl px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+      <a routerLink="/" class="flex items-center gap-2.5 min-w-0">
+        <div
+          class="size-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shrink-0"
+        >
+          <ng-icon name="lucideBuilding2" class="text-lg" />
+        </div>
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-foreground tracking-tight truncate">
+            Importadora Industrial B2B
+          </p>
+          <p class="text-[11px] text-muted-foreground truncate">
+            Abastecimiento Mayorista de Materias Primas
+          </p>
+        </div>
+      </a>
+
+      <nav class="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
+        <a href="#proceso" class="hover:text-foreground transition-colors">Flujo Mayorista</a>
+        <a href="#capacidades" class="hover:text-foreground transition-colors">Capacidades</a>
+      </nav>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <a hlmBtn variant="outline" size="sm" routerLink="/login">Iniciar sesión</a>
+        <a hlmBtn size="sm" routerLink="/register">Registrar empresa</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1">
+    <!-- Hero asimétrico B2B -->
+    <section class="border-b border-border bg-card">
+      <div
+        class="mx-auto max-w-6xl px-4 sm:px-6 py-14 sm:py-20 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center"
+      >
+        <div class="lg:col-span-7 flex flex-col gap-6 items-start">
+          <span
+            hlmBadge
+            variant="outline"
+            class="border-emerald-300 bg-emerald-50 text-emerald-900 font-medium"
+          >
+            Portal Corporativo B2B
+          </span>
+
+          <h1 class="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight leading-[1.12] text-foreground">
+            Abastecimiento mayorista de materias primas con trazabilidad técnica.
+          </h1>
+
+          <p class="text-base text-muted-foreground leading-relaxed max-w-xl">
+            Conectamos su planta industrial con inventario verificado en almacén, asignación
+            automática FEFO por lote, verificación formal de pagos y despacho coordinado con
+            ubicación georreferenciada.
+          </p>
+
+          <div class="flex flex-wrap items-center gap-3 pt-1">
+            <a hlmBtn size="lg" routerLink="/register">
+              <span>Registrar empresa</span>
+              <ng-icon name="lucideArrowRight" />
+            </a>
+            <a hlmBtn variant="outline" size="lg" routerLink="/login">
+              <span>Iniciar sesión</span>
+            </a>
+          </div>
+        </div>
+
+        <aside class="lg:col-span-5">
+          <section hlmCard class="shadow-sm">
+            <div hlmCardHeader class="pb-3">
+              <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Control operativo integrado
+              </span>
+              <h2 hlmCardTitle class="text-lg font-semibold">
+                Estándar industrial en cada pedido
+              </h2>
+            </div>
+
+            <div hlmCardContent class="flex flex-col gap-3.5 text-sm">
+              <div class="flex items-start gap-3 rounded-md border border-border bg-background p-3">
+                <ng-icon name="lucideLayers" class="text-primary text-base mt-0.5 shrink-0" />
+                <div>
+                  <p class="font-medium text-foreground">Asignación FEFO por lote</p>
+                  <p class="text-xs text-muted-foreground mt-0.5">
+                    Despacho prioritario de lotes aprobados según fecha de vencimiento vigente.
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-start gap-3 rounded-md border border-border bg-background p-3">
+                <ng-icon name="lucideShieldCheck" class="text-primary text-base mt-0.5 shrink-0" />
+                <div>
+                  <p class="font-medium text-foreground">Inspección previa en almacén</p>
+                  <p class="text-xs text-muted-foreground mt-0.5">
+                    Solo el stock validado frente a criterios de calidad ingresa al catálogo mayorista.
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-start gap-3 rounded-md border border-border bg-background p-3">
+                <ng-icon name="lucideBadgeCheck" class="text-primary text-base mt-0.5 shrink-0" />
+                <div>
+                  <p class="font-medium text-foreground">Pagos QR y Efectivo verificados</p>
+                  <p class="text-xs text-muted-foreground mt-0.5">
+                    Trazabilidad de comprobantes y liberación formal desde Ventas y Caja.
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-start gap-3 rounded-md border border-border bg-background p-3">
+                <ng-icon name="lucideMapPin" class="text-primary text-base mt-0.5 shrink-0" />
+                <div>
+                  <p class="font-medium text-foreground">Entrega georreferenciada</p>
+                  <p class="text-xs text-muted-foreground mt-0.5">
+                    Fijación exacta de punto de descarga en mapa OpenStreetMap y contacto directo.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <!-- Proceso mayorista -->
+    <section id="proceso" class="mx-auto max-w-6xl px-4 sm:px-6 py-16">
+      <div class="max-w-2xl mb-10">
+        <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Operación Mayorista
+        </span>
+        <h2 class="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground mt-1">
+          Del registro corporativo a la recepción en planta en tres pasos
+        </h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <article class="rounded-lg border border-border bg-card p-6 flex flex-col gap-3">
+          <span class="font-mono text-xs font-semibold text-emerald-700 tabular-nums">01</span>
+          <h3 class="text-base font-semibold text-foreground">Alta de Empresa Cliente</h3>
+          <p class="text-sm text-muted-foreground leading-relaxed">
+            Registre su razón social, NIT, representante y dirección habitual de despacho para
+            habilitar su acceso inmediato al portal mayorista.
+          </p>
+        </article>
+
+        <article class="rounded-lg border border-border bg-card p-6 flex flex-col gap-3">
+          <span class="font-mono text-xs font-semibold text-emerald-700 tabular-nums">02</span>
+          <h3 class="text-base font-semibold text-foreground">Pedido sobre Stock Certificado</h3>
+          <p class="text-sm text-muted-foreground leading-relaxed">
+            Consulte disponibilidad real en lotes aprobados, respete mínimos de compra mayorista y
+            fije el punto de entrega en camión o recojo en local.
+          </p>
+        </article>
+
+        <article class="rounded-lg border border-border bg-card p-6 flex flex-col gap-3">
+          <span class="font-mono text-xs font-semibold text-emerald-700 tabular-nums">03</span>
+          <h3 class="text-base font-semibold text-foreground">Verificación y Trazabilidad</h3>
+          <p class="text-sm text-muted-foreground leading-relaxed">
+            Adjunte su comprobante de transferencia QR o seleccione pago en efectivo y supervise el
+            estado de verificación y entrega desde Mis Pedidos.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <hlm-separator />
+
+    <!-- Capacidades -->
+    <section id="capacidades" class="mx-auto max-w-6xl px-4 sm:px-6 py-16">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="flex flex-col gap-2">
+          <div class="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+            <ng-icon name="lucideClipboardCheck" class="text-lg" />
+          </div>
+          <h3 class="text-base font-semibold text-foreground mt-1">Estándares de Calidad</h3>
+          <p class="text-sm text-muted-foreground leading-relaxed">
+            Cada materia prima define parámetros técnicos obligatorios verificados lote por lote
+            antes de habilitar su comercialización.
+          </p>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <div class="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+            <ng-icon name="lucidePackageCheck" class="text-lg" />
+          </div>
+          <h3 class="text-base font-semibold text-foreground mt-1">Gestión Auditada</h3>
+          <p class="text-sm text-muted-foreground leading-relaxed">
+            Control administrativo de proveedores autorizados, historial técnico de inspecciones y
+            respaldo documental de cada pago procesado.
+          </p>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <div class="size-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+            <ng-icon name="lucideTruck" class="text-lg" />
+          </div>
+          <h3 class="text-base font-semibold text-foreground mt-1">Logística Coordinada</h3>
+          <p class="text-sm text-muted-foreground leading-relaxed">
+            Recojo programado en planta o envío a dirección en camión con coordenadas GPS exactas
+            y teléfono directo de recepción.
+          </p>
+        </div>
+      </div>
+
+      <div
+        class="mt-12 rounded-xl border border-border bg-card p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+      >
+        <div>
+          <h3 class="text-lg font-semibold text-foreground">
+            ¿Listo para operar con su empresa en nuestra plataforma?
+          </h3>
+          <p class="text-sm text-muted-foreground mt-1">
+            Cree su cuenta corporativa en menos de dos minutos o acceda con sus credenciales.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+          <a hlmBtn variant="outline" routerLink="/login">Iniciar sesión</a>
+          <a hlmBtn routerLink="/register">Registrar empresa</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-border bg-card">
+    <div
+      class="mx-auto max-w-6xl px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground"
+    >
+      <span>Importadora Industrial B2B &middot; Gestión de Materias Primas y Pedidos Mayoristas</span>
+      <div class="flex items-center gap-4">
+        <a routerLink="/login" class="hover:text-foreground transition-colors">Iniciar sesión</a>
+        <a routerLink="/register" class="hover:text-foreground transition-colors">
+          Registrar empresa
+        </a>
+      </div>
+    </div>
+  </footer>
+</div>

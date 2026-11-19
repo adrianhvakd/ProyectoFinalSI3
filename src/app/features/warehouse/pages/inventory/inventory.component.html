@@ -5,43 +5,35 @@
         Inventario de Lotes y Calidad
       </h1>
       <p class="text-sm text-muted-foreground">
-        Consulta maestra de inventario por estado, historial de evaluaciones y resolución de lotes
-        observados.
+        Recepcione nuevos lotes, ejecute inspecciones de calidad sobre lotes en revisión y administre
+        observaciones en un solo flujo operativo.
       </p>
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
-      <button type="button" hlmBtn variant="outline" (click)="openReportDrawer()">
-        <ng-icon name="lucideFileBarChart2" />
-        <span>Generar Reporte</span>
-      </button>
-      <a hlmBtn variant="outline" routerLink="/warehouse/quality-control">
-        <ng-icon name="lucideShieldCheck" />
-        <span>Control de Calidad</span>
-      </a>
-      <a hlmBtn routerLink="/warehouse/reception">
+      <button type="button" hlmBtn (click)="openReceptionSheet()">
         <ng-icon name="lucidePackagePlus" />
         <span>Recepcionar Lote</span>
-      </a>
+      </button>
     </div>
   </div>
 
   <!-- Tabs y búsqueda -->
-  <div class="rounded-lg border border-border bg-card p-4 flex flex-col gap-4">
+  <section class="rounded-lg border border-border bg-card p-4 flex flex-col gap-4">
     <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
       <hlm-tabs [tab]="activeTab()" (tabActivated)="onTabChanged($event)" class="w-full lg:w-auto">
         <hlm-tabs-list class="flex-wrap h-auto">
           <button type="button" hlmTabsTrigger="all">
             Todos ({{ tabCounts().all }})
           </button>
+          <button type="button" hlmTabsTrigger="En revisión">
+            En revisión ({{ tabCounts().review }})
+          </button>
           <button type="button" hlmTabsTrigger="Aprobado / Disponible">
             Aprobados ({{ tabCounts().approved }})
           </button>
           <button type="button" hlmTabsTrigger="Observado">
             Observados ({{ tabCounts().observed }})
-          </button>
-          <button type="button" hlmTabsTrigger="En revisión">
-            En revisión ({{ tabCounts().review }})
           </button>
           <button type="button" hlmTabsTrigger="Devuelto">
             Devueltos ({{ tabCounts().returned }})
@@ -159,7 +151,32 @@
                   <app-status-badge [status]="lote.estado" kind="lote" />
                 </td>
                 <td hlmTd class="text-end">
-                  <div class="inline-flex items-center gap-1">
+                  <div class="inline-flex items-center gap-1.5">
+                    @if (lote.estado === 'En revisión') {
+                      <button
+                        type="button"
+                        hlmBtn
+                        size="sm"
+                        (click)="openQualityControlSheet(lote)"
+                      >
+                        <ng-icon name="lucideShieldCheck" />
+                        <span>Hacer Control</span>
+                      </button>
+                    }
+
+                    @if (lote.estado === 'Observado') {
+                      <button
+                        type="button"
+                        hlmBtn
+                        variant="outline"
+                        size="sm"
+                        (click)="openResolveDialog(lote)"
+                      >
+                        <ng-icon name="lucideWrench" />
+                        <span>Resolver Observación</span>
+                      </button>
+                    }
+
                     <button
                       type="button"
                       hlmBtn
@@ -170,18 +187,6 @@
                       <ng-icon name="lucideHistory" />
                       <span>Historial ({{ lote.control_calidad?.length ?? 0 }})</span>
                     </button>
-
-                    @if (lote.estado === 'Observado') {
-                      <button
-                        type="button"
-                        hlmBtn
-                        size="sm"
-                        (click)="openResolveDialog(lote)"
-                      >
-                        <ng-icon name="lucideWrench" />
-                        <span>Resolver Observación</span>
-                      </button>
-                    }
                   </div>
                 </td>
               </tr>
@@ -198,8 +203,459 @@
         (pageSizeChange)="pageSize.set($event); page.set(1)"
       />
     }
-  </div>
+  </section>
 </div>
+
+<!-- Drawer 1: Recepcionar Lote (Derecha a Izquierda) -->
+<hlm-sheet
+  side="right"
+  [state]="receptionSheetOpen() ? 'open' : 'closed'"
+  (closed)="closeReceptionSheet()"
+>
+  <hlm-sheet-content
+    *hlmSheetPortal
+    class="w-full sm:max-w-xl data-[side=right]:sm:max-w-xl p-0 flex flex-col max-h-dvh"
+  >
+    <hlm-sheet-header class="px-6 py-4 border-b border-border text-left shrink-0">
+      <h3 hlmSheetTitle class="flex items-center gap-2 text-lg font-semibold">
+        <ng-icon name="lucidePackagePlus" class="text-primary" />
+        <span>Recepcionar Nuevo Lote</span>
+      </h3>
+      <p hlmSheetDescription>
+        Todo lote ingresa en estado <strong>En revisión</strong> sin sumar stock disponible hasta
+        aprobar Control de Calidad.
+      </p>
+    </hlm-sheet-header>
+
+    <div class="flex-1 overflow-y-auto px-6 py-5">
+      @if (catalogLoadError()) {
+        <div hlmAlert variant="destructive" class="mb-4">
+          <h4 hlmAlertTitle>Error cargando catálogos</h4>
+          <p hlmAlertDescription>{{ catalogLoadError() }}</p>
+        </div>
+      }
+
+      @if (loadingCatalogs()) {
+        <div class="flex flex-col gap-4">
+          <hlm-skeleton class="h-10 w-full rounded-md" />
+          <hlm-skeleton class="h-10 w-full rounded-md" />
+          <hlm-skeleton class="h-10 w-full rounded-md" />
+          <hlm-skeleton class="h-24 w-full rounded-md" />
+        </div>
+      } @else {
+        <form
+          id="lot-reception-drawer-form"
+          [formGroup]="receptionForm"
+          (ngSubmit)="onSubmitReception()"
+          class="flex flex-col gap-4"
+        >
+          <div hlmField>
+            <label hlmFieldLabel for="rec-codigo">Código único de lote *</label>
+            <input
+              hlmInput
+              id="rec-codigo"
+              formControlName="codigo_unico"
+              placeholder="LOTE-2026-001"
+              class="font-mono uppercase"
+            />
+            @if (receptionForm.controls.codigo_unico.hasError('required')) {
+              <hlm-field-error validator="required">
+                El código único del lote es obligatorio.
+              </hlm-field-error>
+            }
+            @if (receptionForm.controls.codigo_unico.hasError('codeFormat')) {
+              <hlm-field-error validator="codeFormat">
+                Use solo letras, números, puntos o guiones (2-40 caracteres).
+              </hlm-field-error>
+            }
+          </div>
+
+          <div hlmField>
+            <label hlmFieldLabel for="rec-mp">Materia prima *</label>
+            <hlm-native-select
+              selectId="rec-mp"
+              class="w-full"
+              selectClass="w-full"
+              formControlName="id_materia_prima"
+            >
+              <option hlmNativeSelectOption value="">Seleccione una materia prima...</option>
+              @for (mp of materials(); track mp.id_materia_prima) {
+                <option hlmNativeSelectOption [value]="mp.id_materia_prima">
+                  {{ mp.codigo }} &middot; {{ mp.nombre }} ({{ mp.unidad_medida }})
+                </option>
+              }
+            </hlm-native-select>
+            @if (receptionForm.controls.id_materia_prima.hasError('required')) {
+              <hlm-field-error validator="required">
+                Debe seleccionar una materia prima.
+              </hlm-field-error>
+            }
+          </div>
+
+          @if (selectedMaterial(); as mat) {
+            <div class="rounded-lg border border-border bg-muted/30 p-3.5 flex flex-col gap-2">
+              <div class="flex items-center justify-between gap-2 text-xs">
+                <span class="font-semibold text-foreground flex items-center gap-1.5">
+                  <ng-icon name="lucideInfo" class="text-primary" />
+                  Parámetros de calidad exigidos ({{ mat.codigo }})
+                </span>
+                <span class="text-muted-foreground">{{ mat.unidad_medida }}</span>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                @for (p of selectedMaterialRequiredParams(); track p.key) {
+                  <span hlmBadge variant="outline" class="bg-background text-xs">
+                    {{ p.label }}
+                  </span>
+                } @empty {
+                  <span class="text-xs text-muted-foreground">
+                    Sin criterios obligatorios configurados.
+                  </span>
+                }
+              </div>
+            </div>
+          }
+
+          <div hlmField>
+            <label hlmFieldLabel for="rec-prov">Proveedor autorizado (activos) *</label>
+            <hlm-native-select
+              selectId="rec-prov"
+              class="w-full"
+              selectClass="w-full"
+              formControlName="id_proveedor"
+            >
+              <option hlmNativeSelectOption value="">Seleccione un proveedor activo...</option>
+              @for (prov of activeProviders(); track prov.id_proveedor) {
+                <option hlmNativeSelectOption [value]="prov.id_proveedor">
+                  {{ prov.razon_social }} ({{ prov.pais_origen }})
+                </option>
+              }
+            </hlm-native-select>
+            @if (receptionForm.controls.id_proveedor.hasError('required')) {
+              <hlm-field-error validator="required">
+                Debe seleccionar un proveedor activo.
+              </hlm-field-error>
+            }
+          </div>
+
+          <div hlmField>
+            <label hlmFieldLabel for="rec-cant">
+              Cantidad recibida
+              @if (selectedMaterial(); as mat) {
+                <span class="text-muted-foreground font-normal">({{ mat.unidad_medida }})</span>
+              }
+              *
+            </label>
+            <input
+              hlmInput
+              id="rec-cant"
+              type="number"
+              step="0.01"
+              min="0.01"
+              formControlName="cantidad_recibida"
+              class="tabular-nums"
+            />
+            @if (receptionForm.controls.cantidad_recibida.hasError('required')) {
+              <hlm-field-error validator="required">La cantidad es obligatoria.</hlm-field-error>
+            }
+            @if (receptionForm.controls.cantidad_recibida.hasError('positiveDecimal')) {
+              <hlm-field-error validator="positiveDecimal">
+                La cantidad debe ser estrictamente mayor a 0.
+              </hlm-field-error>
+            }
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div hlmField>
+              <label hlmFieldLabel for="rec-fecha-rec">Fecha de recepción *</label>
+              <input
+                hlmInput
+                id="rec-fecha-rec"
+                type="date"
+                formControlName="fecha_recepcion"
+                class="tabular-nums"
+              />
+              @if (receptionForm.controls.fecha_recepcion.hasError('required')) {
+                <hlm-field-error validator="required">Fecha obligatoria.</hlm-field-error>
+              }
+            </div>
+
+            <div hlmField>
+              <label hlmFieldLabel for="rec-fecha-ven">Fecha de vencimiento *</label>
+              <input
+                hlmInput
+                id="rec-fecha-ven"
+                type="date"
+                [min]="todayIso"
+                formControlName="fecha_vencimiento"
+                class="tabular-nums"
+              />
+              @if (receptionForm.controls.fecha_vencimiento.hasError('required')) {
+                <hlm-field-error validator="required">
+                  La fecha de vencimiento es obligatoria.
+                </hlm-field-error>
+              }
+              @if (receptionForm.controls.fecha_vencimiento.hasError('expiredDate')) {
+                <hlm-field-error validator="expiredDate">
+                  No se permiten lotes vencidos o con vencimiento de hoy.
+                </hlm-field-error>
+              }
+              @if (receptionForm.controls.fecha_vencimiento.hasError('dateOrder')) {
+                <hlm-field-error validator="dateOrder">
+                  El vencimiento debe ser posterior a la fecha de recepción.
+                </hlm-field-error>
+              }
+            </div>
+          </div>
+        </form>
+      }
+    </div>
+
+    <hlm-sheet-footer
+      class="px-6 py-4 border-t border-border bg-card flex items-center justify-end gap-2 shrink-0"
+    >
+      <button
+        type="button"
+        hlmBtn
+        variant="outline"
+        [disabled]="submittingReception()"
+        (click)="closeReceptionSheet()"
+      >
+        Cancelar
+      </button>
+      <button
+        type="submit"
+        form="lot-reception-drawer-form"
+        hlmBtn
+        [disabled]="loadingCatalogs() || submittingReception()"
+      >
+        @if (submittingReception()) {
+          <hlm-spinner />
+          <span>Registrando lote...</span>
+        } @else {
+          <ng-icon name="lucidePackagePlus" />
+          <span>Registrar en Almacén</span>
+        }
+      </button>
+    </hlm-sheet-footer>
+  </hlm-sheet-content>
+</hlm-sheet>
+
+<!-- Drawer 2: Control de Calidad por fila (Derecha a Izquierda) -->
+<hlm-sheet
+  side="right"
+  [state]="inspectingLot() !== null ? 'open' : 'closed'"
+  (closed)="closeQualityControlSheet()"
+>
+  <hlm-sheet-content
+    *hlmSheetPortal
+    class="w-full sm:max-w-xl data-[side=right]:sm:max-w-xl p-0 flex flex-col max-h-dvh"
+  >
+    @if (inspectingLot(); as lote) {
+      @let mp = getMaterial(lote);
+      @let prov = getProvider(lote);
+
+      <hlm-sheet-header class="px-6 py-4 border-b border-border text-left shrink-0">
+        <h3 hlmSheetTitle class="flex items-center gap-2 text-lg font-semibold">
+          <ng-icon name="lucideShieldCheck" class="text-primary" />
+          <span>Control de Calidad · {{ lote.codigo_unico }}</span>
+        </h3>
+        <p hlmSheetDescription>
+          {{ mp?.nombre }} ({{ mp?.codigo }}) · {{ prov?.razon_social }}
+        </p>
+      </hlm-sheet-header>
+
+      <div class="flex-1 overflow-y-auto px-6 py-5">
+        <form
+          id="qc-inspection-drawer-form"
+          [formGroup]="qcForm"
+          (ngSubmit)="requestSubmitQc()"
+          class="flex flex-col gap-5"
+        >
+          <div
+            class="grid grid-cols-3 gap-3 rounded-lg border border-border bg-muted/30 p-3 text-xs"
+          >
+            <div>
+              <span class="text-muted-foreground block">Cantidad recibida</span>
+              <span class="font-semibold text-foreground tabular-nums">
+                {{ lote.cantidad_recibida | number: '1.2-2' }} {{ mp?.unidad_medida ?? '' }}
+              </span>
+            </div>
+            <div>
+              <span class="text-muted-foreground block">F. Recepción</span>
+              <span class="font-medium text-foreground tabular-nums">
+                {{ lote.fecha_recepcion | date: 'dd/MM/yyyy' }}
+              </span>
+            </div>
+            <div>
+              <span class="text-muted-foreground block">Vencimiento</span>
+              <span class="font-medium text-foreground tabular-nums">
+                {{ lote.fecha_vencimiento | date: 'dd/MM/yyyy' }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Checklist dinámico desde JSONB parametros_calidad_exigidos -->
+          <div class="rounded-lg border border-border bg-card p-4 flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <ng-icon name="lucideClipboardCheck" class="text-base text-primary" />
+                <span class="text-sm font-semibold text-foreground">
+                  Checklist de parámetros requeridos
+                </span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-muted-foreground tabular-nums">
+                  {{ qcCheckedCount() }} / {{ qcChecklist().length }}
+                </span>
+                @if (qcChecklist().length > 0 && !allQcChecklistChecked()) {
+                  <button
+                    type="button"
+                    hlmBtn
+                    variant="outline"
+                    size="xs"
+                    (click)="checkAllQcCriteria()"
+                  >
+                    Marcar todos
+                  </button>
+                }
+              </div>
+            </div>
+
+            @if (qcChecklist().length > 0) {
+              <div class="flex flex-col gap-2">
+                @for (item of qcChecklist(); track item.key) {
+                  <label
+                    class="flex items-center gap-3 rounded-md border border-border/80 bg-background px-3 py-2.5 text-sm cursor-pointer hover:bg-muted/40 transition-colors"
+                  >
+                    <hlm-checkbox
+                      [checked]="item.checked"
+                      (checkedChange)="toggleQcChecklistItem(item.key, $event)"
+                    />
+                    <span class="text-foreground select-none">{{ item.label }}</span>
+                  </label>
+                }
+              </div>
+            } @else {
+              <p class="text-xs text-muted-foreground">
+                Esta materia prima no tiene parámetros obligatorios activos en su ficha técnica.
+              </p>
+            }
+          </div>
+
+          <div hlmField>
+            <span hlmFieldLabel>Dictamen técnico del inspector</span>
+            <hlm-radio-group formControlName="cumple_parametros" class="grid grid-cols-1 gap-2.5 pt-1">
+              <label
+                class="flex items-center gap-2.5 rounded-lg border border-border bg-card p-3 cursor-pointer hover:bg-muted/40"
+              >
+                <hlm-radio [value]="true">
+                  <hlm-radio-indicator indicator />
+                  <div class="flex flex-col">
+                    <span class="text-sm font-medium text-foreground">
+                      Cumple parámetros (Aprobar y habilitar stock)
+                    </span>
+                    <span class="text-xs text-muted-foreground">
+                      El lote pasa a Aprobado / Disponible para comercialización mayorista
+                    </span>
+                  </div>
+                </hlm-radio>
+              </label>
+
+              <label
+                class="flex items-center gap-2.5 rounded-lg border border-border bg-card p-3 cursor-pointer hover:bg-muted/40"
+              >
+                <hlm-radio [value]="false">
+                  <hlm-radio-indicator indicator />
+                  <div class="flex flex-col">
+                    <span class="text-sm font-medium text-destructive">
+                      No cumple (Observar lote y retener stock)
+                    </span>
+                    <span class="text-xs text-muted-foreground">
+                      Pasa a estado Observado y requiere resolución secundaria en Almacén
+                    </span>
+                  </div>
+                </hlm-radio>
+              </label>
+            </hlm-radio-group>
+          </div>
+
+          <div hlmField>
+            <label hlmFieldLabel for="qc-informe">
+              Informe técnico y hallazgos
+              {{ qcDecisionSelected() ? '(opcional)' : '* obligatorio al observar' }}
+            </label>
+            <textarea
+              hlmTextarea
+              id="qc-informe"
+              rows="4"
+              formControlName="informe_tecnico_hallazgos"
+              [placeholder]="
+                qcDecisionSelected()
+                  ? 'Notas técnicas opcionales de la inspección...'
+                  : 'Detalle las desviaciones detectadas, porcentajes medidos y condiciones del empaque...'
+              "
+            ></textarea>
+            @if (qcForm.controls.informe_tecnico_hallazgos.hasError('required')) {
+              <hlm-field-error validator="required">
+                El informe técnico es obligatorio cuando el lote no cumple parámetros.
+              </hlm-field-error>
+            }
+            @if (qcForm.controls.informe_tecnico_hallazgos.hasError('minlength')) {
+              <hlm-field-error validator="minlength">
+                Describa los hallazgos con al menos 10 caracteres técnicos.
+              </hlm-field-error>
+            }
+          </div>
+        </form>
+      </div>
+
+      <hlm-sheet-footer
+        class="px-6 py-4 border-t border-border bg-card flex items-center justify-end gap-2 shrink-0"
+      >
+        <button
+          type="button"
+          hlmBtn
+          variant="outline"
+          [disabled]="submittingQc()"
+          (click)="closeQualityControlSheet()"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          form="qc-inspection-drawer-form"
+          hlmBtn
+          [variant]="qcDecisionSelected() ? 'default' : 'destructive'"
+          [disabled]="submittingQc()"
+        >
+          <span>{{ qcDecisionSelected() ? 'Aprobar Lote' : 'Registrar Observación' }}</span>
+        </button>
+      </hlm-sheet-footer>
+    }
+  </hlm-sheet-content>
+</hlm-sheet>
+
+<!-- Confirmación Control de Calidad -->
+<app-confirm-dialog
+  [open]="qcConfirmOpen()"
+  [title]="qcDecisionSelected() ? '¿Aprobar lote para venta?' : '¿Registrar lote como Observado?'"
+  [description]="
+    qcDecisionSelected()
+      ? 'El lote ' +
+        (inspectingLot()?.codigo_unico ?? '') +
+        ' cambiará a Aprobado / Disponible y sumará ' +
+        (inspectingLot()?.cantidad_disponible ?? 0) +
+        ' al stock disponible.'
+      : 'El lote ' +
+        (inspectingLot()?.codigo_unico ?? '') +
+        ' cambiará a estado Observado y permanecerá retenido hasta su resolución.'
+  "
+  [confirmLabel]="qcDecisionSelected() ? 'Confirmar Aprobación' : 'Confirmar Observación'"
+  [variant]="qcDecisionSelected() ? 'default' : 'destructive'"
+  [loading]="submittingQc()"
+  (confirmed)="confirmQcInspection()"
+  (cancelled)="qcConfirmOpen.set(false)"
+/>
 
 <!-- Dialog Historial de Control de Calidad -->
 <hlm-dialog [state]="historyLot() !== null ? 'open' : 'closed'" (closed)="historyLot.set(null)">
@@ -409,12 +865,4 @@
   [loading]="resolvingSubmitting()"
   (confirmed)="confirmResolve()"
   (cancelled)="resolveConfirmOpen.set(false)"
-/>
-
-<app-dynamic-report-drawer
-  [open]="reportOpen()"
-  [config]="reportConfig()"
-  [data]="reportRows()"
-  [loading]="reportLoading()"
-  (openChange)="reportOpen.set($event)"
 />

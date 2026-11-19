@@ -6,20 +6,10 @@
         Catálogo de Materias Primas
       </h1>
       <p class="text-sm text-muted-foreground">
-        Gestione códigos, precios mayoristas, mínimos de venta y estándares exigidos de calidad.
+        Gestione códigos automáticos, precios mayoristas, mínimos de venta y estándares de calidad.
       </p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        hlmBtn
-        variant="outline"
-        [disabled]="loading()"
-        (click)="reportOpen.set(true)"
-      >
-        <ng-icon name="lucideFileBarChart2" />
-        <span>Generar Reporte</span>
-      </button>
       <button type="button" hlmBtn (click)="openCreateDialog()">
         <ng-icon name="lucidePlus" />
         <span>Nueva Materia Prima</span>
@@ -115,6 +105,7 @@
           </thead>
           <tbody hlmTBody>
             @for (item of paginatedItems(); track item.id_materia_prima) {
+              @let activeCount = getActiveQualityCount(item);
               <tr hlmTr>
                 <td hlmTd class="font-mono text-xs font-semibold text-foreground tabular-nums">
                   {{ item.codigo }}
@@ -140,8 +131,15 @@
                     {{ item.stock_disponible_total | number: '1.2-2' }} {{ item.unidad_medida }}
                   </span>
                 </td>
-                <td hlmTd class="max-w-xs truncate text-muted-foreground">
-                  {{ item.parametros_calidad_exigidos }}
+                <td hlmTd class="max-w-xs">
+                  <div class="flex items-center gap-2">
+                    <span hlmBadge variant="secondary" class="shrink-0 tabular-nums">
+                      {{ activeCount }} activos
+                    </span>
+                    <span class="truncate text-xs text-muted-foreground">
+                      {{ getActiveQualitySummary(item) }}
+                    </span>
+                  </div>
                 </td>
                 <td hlmTd class="text-end">
                   <button
@@ -174,14 +172,14 @@
 
 <!-- Dialog CRUD Materia Prima -->
 <hlm-dialog [state]="dialogOpen() ? 'open' : 'closed'" (closed)="closeDialog()">
-  <hlm-dialog-content *hlmDialogPortal class="sm:max-w-lg max-h-[90dvh] overflow-y-auto">
+  <hlm-dialog-content *hlmDialogPortal class="sm:max-w-xl max-h-[90dvh] overflow-y-auto">
     <hlm-dialog-header>
       <h3 hlmDialogTitle>
         {{ editingItem() ? 'Editar Materia Prima' : 'Registrar Materia Prima' }}
       </h3>
       <p hlmDialogDescription>
-        Los cambios en mínimo de venta y parámetros de calidad aplican de inmediato a nuevos
-        lotes y pedidos.
+        El código se asigna automáticamente en base de datos y los parámetros activos alimentan el
+        Control de Calidad.
       </p>
     </hlm-dialog-header>
 
@@ -199,42 +197,30 @@
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div hlmField>
-          <label hlmFieldLabel for="mp-codigo">Código único</label>
+          <label hlmFieldLabel for="mp-codigo">Código automático</label>
           <input
             hlmInput
             id="mp-codigo"
-            formControlName="codigo"
-            placeholder="MP-RESINA-01"
-            class="uppercase font-mono"
+            type="text"
+            [value]="editingItem()?.codigo ?? 'Se generará automáticamente (MP-XXXX)'"
+            disabled
+            readonly
+            class="font-mono text-xs bg-muted/50"
           />
-          @if (form.controls.codigo.hasError('required')) {
-            <hlm-field-error validator="required">El código es obligatorio.</hlm-field-error>
-          }
-          @if (form.controls.codigo.hasError('codeFormat')) {
-            <hlm-field-error validator="codeFormat">
-              Use solo letras, números, puntos o guiones (2-40 caracteres).
-            </hlm-field-error>
-          }
         </div>
 
         <div hlmField>
           <label hlmFieldLabel for="mp-unidad">Unidad de medida</label>
-          <input
-            hlmInput
-            id="mp-unidad"
+          <hlm-native-select
+            selectId="mp-unidad"
+            class="w-full"
+            selectClass="w-full"
             formControlName="unidad_medida"
-            list="unidades-medida-list"
-            placeholder="kg, ton, L, unidad"
-          />
-          <datalist id="unidades-medida-list">
-            <option value="kg"></option>
-            <option value="ton"></option>
-            <option value="L"></option>
-            <option value="m³"></option>
-            <option value="saco"></option>
-            <option value="tambor"></option>
-            <option value="unidad"></option>
-          </datalist>
+          >
+            @for (unit of unitOptions(); track unit) {
+              <option hlmNativeSelectOption [value]="unit">{{ unit }}</option>
+            }
+          </hlm-native-select>
           @if (form.controls.unidad_medida.hasError('required')) {
             <hlm-field-error validator="required">
               La unidad de medida es obligatoria.
@@ -303,27 +289,78 @@
         </div>
       </div>
 
-      <div hlmField>
-        <label hlmFieldLabel for="mp-calidad">Parámetros de calidad exigidos</label>
-        <textarea
-          hlmTextarea
-          id="mp-calidad"
-          rows="3"
-          formControlName="parametros_calidad_exigidos"
-          placeholder="Ej: Pureza >= 98%; Humedad <= 0.5%; Envase sellado sin daños"
-        ></textarea>
-        <p hlmFieldDescription>
-          Separe los criterios por punto y coma o salto de línea para el checklist de inspección.
-        </p>
-        @if (form.controls.parametros_calidad_exigidos.hasError('required')) {
-          <hlm-field-error validator="required">
-            Los parámetros de calidad son obligatorios.
-          </hlm-field-error>
-        }
-        @if (form.controls.parametros_calidad_exigidos.hasError('minlength')) {
-          <hlm-field-error validator="minlength">
-            Describa al menos 5 caracteres técnicos.
-          </hlm-field-error>
+      <!-- Parámetros de Calidad Exigidos (JSONB toggles) -->
+      <div class="rounded-lg border border-border bg-muted/20 p-4 flex flex-col gap-3">
+        <div class="flex items-center justify-between gap-2">
+          <div>
+            <span class="text-sm font-semibold text-foreground block">
+              Parámetros de calidad exigidos
+            </span>
+            <span class="text-xs text-muted-foreground">
+              Los criterios activos aparecerán como checklist obligatorio al evaluar lotes.
+            </span>
+          </div>
+          <span hlmBadge variant="secondary" class="tabular-nums shrink-0">
+            {{ activeParamsCount() }} requeridos
+          </span>
+        </div>
+
+        <div class="flex flex-col divide-y divide-border rounded-md border border-border bg-background">
+          @for (param of qualityParams(); track param.key) {
+            <div class="flex items-center justify-between gap-3 px-3 py-2.5">
+              <label
+                [for]="'qc-param-' + param.key"
+                class="text-sm text-foreground cursor-pointer flex-1 select-none"
+              >
+                {{ param.label }}
+              </label>
+
+              <div class="flex items-center gap-2 shrink-0">
+                @if (!isStandardParam(param.key)) {
+                  <button
+                    type="button"
+                    hlmBtn
+                    variant="ghost"
+                    size="icon-xs"
+                    class="text-destructive"
+                    (click)="removeCustomParam(param.key)"
+                    aria-label="Eliminar parámetro personalizado"
+                  >
+                    <ng-icon name="lucideTrash2" />
+                  </button>
+                }
+                <hlm-switch
+                  [inputId]="'qc-param-' + param.key"
+                  [checked]="param.requerido"
+                  (checkedChange)="toggleQualityParam(param.key, $event)"
+                />
+              </div>
+            </div>
+          }
+        </div>
+
+        <!-- Agregar parámetro personalizado -->
+        <div class="flex items-center gap-2 pt-1">
+          <input
+            hlmInput
+            type="text"
+            [value]="customParamLabel()"
+            (input)="customParamLabel.set($any($event.target).value)"
+            (keydown.enter)="$event.preventDefault(); addCustomParam()"
+            placeholder="Agregar parámetro personalizado (ej. Granulometría ASTM)..."
+            aria-label="Nombre del parámetro personalizado"
+            class="flex-1 text-xs"
+          />
+          <button type="button" hlmBtn variant="outline" size="sm" (click)="addCustomParam()">
+            <ng-icon name="lucidePlus" />
+            <span>Agregar</span>
+          </button>
+        </div>
+
+        @if (qualityParamsError()) {
+          <p class="text-xs font-medium text-destructive" role="alert">
+            {{ qualityParamsError() }}
+          </p>
         }
       </div>
 
@@ -349,11 +386,3 @@
     </form>
   </hlm-dialog-content>
 </hlm-dialog>
-
-<app-dynamic-report-drawer
-  [open]="reportOpen()"
-  [config]="reportConfig()"
-  [data]="items()"
-  [loading]="loading()"
-  (openChange)="reportOpen.set($event)"
-/>

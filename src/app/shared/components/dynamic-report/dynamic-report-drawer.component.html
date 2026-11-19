@@ -84,16 +84,21 @@
           </div>
 
           @for (filter of config().filters; track filter.key) {
+            @let enabled = isFilterEnabled(filter);
             @if (filter.type === 'select') {
-              <div class="flex flex-col gap-1.5">
-                <label class="text-xs font-medium text-muted-foreground">
-                  {{ filter.label }}
+              <div [class]="enabled ? 'flex flex-col gap-1.5' : 'flex flex-col gap-1.5 opacity-55'">
+                <label class="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <span>{{ filter.label }}</span>
+                  @if (!enabled) {
+                    <span class="text-[11px] font-normal">(Columna oculta)</span>
+                  }
                 </label>
                 <hlm-native-select
                   class="w-full"
                   selectClass="w-full"
-                  [value]="selectFilterValues()[filter.key] ?? 'all'"
-                  (valueChange)="onSelectFilterChange(filter.key, $event)"
+                  [disabled]="!enabled"
+                  [value]="enabled ? (selectFilterValues()[filter.key] ?? 'all') : 'all'"
+                  (valueChange)="onSelectFilterChange(filter, $event)"
                 >
                   <option hlmNativeSelectOption value="all">Todos</option>
                   @for (opt of filter.options; track opt.value) {
@@ -102,15 +107,19 @@
                 </hlm-native-select>
               </div>
             } @else if (filter.type === 'boolean') {
-              <div class="flex flex-col gap-1.5">
-                <label class="text-xs font-medium text-muted-foreground">
-                  {{ filter.label }}
+              <div [class]="enabled ? 'flex flex-col gap-1.5' : 'flex flex-col gap-1.5 opacity-55'">
+                <label class="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <span>{{ filter.label }}</span>
+                  @if (!enabled) {
+                    <span class="text-[11px] font-normal">(Columna oculta)</span>
+                  }
                 </label>
                 <hlm-native-select
                   class="w-full"
                   selectClass="w-full"
-                  [value]="booleanFilterValues()[filter.key] ?? 'all'"
-                  (valueChange)="onBooleanFilterChange(filter.key, $event)"
+                  [disabled]="!enabled"
+                  [value]="enabled ? (booleanFilterValues()[filter.key] ?? 'all') : 'all'"
+                  (valueChange)="onBooleanFilterChange(filter, $event)"
                 >
                   <option hlmNativeSelectOption value="all">Todos</option>
                   <option hlmNativeSelectOption value="true">
@@ -122,21 +131,34 @@
                 </hlm-native-select>
               </div>
             } @else if (filter.type === 'date-range') {
-              <div class="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-1">
-                <span class="text-xs font-medium text-muted-foreground">{{ filter.label }}</span>
+              <div
+                [class]="
+                  enabled
+                    ? 'flex flex-col gap-1.5 sm:col-span-2 lg:col-span-1'
+                    : 'flex flex-col gap-1.5 sm:col-span-2 lg:col-span-1 opacity-55'
+                "
+              >
+                <span class="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                  <span>{{ filter.label }}</span>
+                  @if (!enabled) {
+                    <span class="text-[11px] font-normal">(Columna oculta)</span>
+                  }
+                </span>
                 <div class="grid grid-cols-2 gap-2">
                   <input
                     hlmInput
                     type="date"
-                    [value]="getDateBound(filter.key, 'from')"
-                    (input)="onDateRangeChange(filter.key, 'from', $any($event.target).value)"
+                    [disabled]="!enabled"
+                    [value]="getDateBound(filter, 'from')"
+                    (input)="onDateRangeChange(filter, 'from', $any($event.target).value)"
                     [attr.aria-label]="filter.label + ' desde'"
                   />
                   <input
                     hlmInput
                     type="date"
-                    [value]="getDateBound(filter.key, 'to')"
-                    (input)="onDateRangeChange(filter.key, 'to', $any($event.target).value)"
+                    [disabled]="!enabled"
+                    [value]="getDateBound(filter, 'to')"
+                    (input)="onDateRangeChange(filter, 'to', $any($event.target).value)"
                     [attr.aria-label]="filter.label + ' hasta'"
                   />
                 </div>

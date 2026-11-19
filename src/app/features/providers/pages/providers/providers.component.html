@@ -9,16 +9,6 @@
       </p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        hlmBtn
-        variant="outline"
-        [disabled]="loading()"
-        (click)="reportOpen.set(true)"
-      >
-        <ng-icon name="lucideFileBarChart2" />
-        <span>Generar Reporte</span>
-      </button>
       <button type="button" hlmBtn (click)="openCreateDialog()">
         <ng-icon name="lucidePlus" />
         <span>Nuevo Proveedor</span>
@@ -40,7 +30,7 @@
         type="text"
         [value]="searchTerm()"
         (input)="onSearch($any($event.target).value)"
-        placeholder="Buscar por identificación fiscal, razón social o contacto..."
+        placeholder="Buscar por identificación fiscal, razón social o teléfono..."
         aria-label="Buscar proveedor"
         class="pl-9"
       />
@@ -115,7 +105,7 @@
               <th hlmTh>Identificación Fiscal</th>
               <th hlmTh>Razón Social</th>
               <th hlmTh>País de Origen</th>
-              <th hlmTh>Datos de Contacto</th>
+              <th hlmTh>Número de Contacto</th>
               <th hlmTh>Estado</th>
               <th hlmTh class="text-end">Acciones</th>
             </tr>
@@ -128,7 +118,7 @@
                 </td>
                 <td hlmTd class="font-medium text-foreground">{{ item.razon_social }}</td>
                 <td hlmTd class="text-muted-foreground">{{ item.pais_origen }}</td>
-                <td hlmTd class="max-w-xs truncate text-muted-foreground">
+                <td hlmTd class="tabular-nums text-muted-foreground">
                   {{ item.datos_contacto }}
                 </td>
                 <td hlmTd>
@@ -186,7 +176,7 @@
         {{ editingItem() ? 'Editar Proveedor' : 'Registrar Proveedor' }}
       </h3>
       <p hlmDialogDescription>
-        Complete la ficha fiscal y de contacto del proveedor.
+        Complete la ficha fiscal y número de contacto telefónico del proveedor.
       </p>
     </hlm-dialog-header>
 
@@ -249,22 +239,26 @@
       </div>
 
       <div hlmField>
-        <label hlmFieldLabel for="prov-contacto">Datos de contacto</label>
-        <textarea
-          hlmTextarea
+        <label hlmFieldLabel for="prov-contacto">Número de contacto</label>
+        <input
+          hlmInput
           id="prov-contacto"
-          rows="3"
+          type="tel"
           formControlName="datos_contacto"
-          placeholder="Ing. Carlos Mendoza · ventas@proveedor.com · +591 3 3456789"
-        ></textarea>
+          placeholder="+591 70012345"
+          class="tabular-nums"
+        />
+        <p hlmFieldDescription>
+          Prefijo internacional opcional seguido de dígitos, espacios o guiones (ej. +591 70012345).
+        </p>
         @if (form.controls.datos_contacto.hasError('required')) {
           <hlm-field-error validator="required">
-            Los datos de contacto son obligatorios.
+            El número de contacto es obligatorio.
           </hlm-field-error>
         }
-        @if (form.controls.datos_contacto.hasError('minlength')) {
-          <hlm-field-error validator="minlength">
-            Ingrese al menos 5 caracteres de contacto.
+        @if (form.controls.datos_contacto.hasError('phoneFormat')) {
+          <hlm-field-error validator="phoneFormat">
+            Formato telefónico inválido (7 a 15 dígitos; solo +, dígitos, espacios y guiones).
           </hlm-field-error>
         }
       </div>
@@ -309,12 +303,4 @@
   [loading]="toggling()"
   (confirmed)="confirmToggleActive()"
   (cancelled)="confirmTarget.set(null)"
-/>
-
-<app-dynamic-report-drawer
-  [open]="reportOpen()"
-  [config]="reportConfig()"
-  [data]="items()"
-  [loading]="loading()"
-  (openChange)="reportOpen.set($event)"
 />

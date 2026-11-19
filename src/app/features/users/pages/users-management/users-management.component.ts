@@ -4,9 +4,9 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideBriefcase,
   lucideEye,
   lucideEyeOff,
-  lucideFileBarChart2,
   lucidePencil,
   lucidePlus,
   lucidePower,
@@ -28,8 +28,10 @@ import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
 import { HlmSpinnerImports } from '@spartan-ng/helm/spinner';
 import { HlmSwitchImports } from '@spartan-ng/helm/switch';
 import { HlmTableImports } from '@spartan-ng/helm/table';
+import { HlmTextareaImports } from '@spartan-ng/helm/textarea';
 import {
   Camion,
+  EmpresaCliente,
   ROLES_INTERNOS,
   ROLES_USUARIO,
   RolUsuario,
@@ -39,12 +41,18 @@ import {
 import { AuthService } from '../../../../core/services/auth.service';
 import { translateSupabaseError } from '../../../../core/utils/supabase-error.util';
 import { ConfirmDialogComponent } from '../../../../shared/components/confirm-dialog/confirm-dialog.component';
-import { DynamicReportDrawerComponent } from '../../../../shared/components/dynamic-report/dynamic-report-drawer.component';
-import { DynamicReportConfig } from '../../../../shared/components/dynamic-report/dynamic-report.models';
 import { StatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge.component';
 import { TablePaginationComponent } from '../../../../shared/components/table-pagination/table-pagination.component';
-import { sanitizeEmail, sanitizePlate, sanitizeText } from '../../../../shared/utils/sanitizers.util';
 import {
+  sanitizeEmail,
+  sanitizeNit,
+  sanitizePhone,
+  sanitizePlate,
+  sanitizeText,
+} from '../../../../shared/utils/sanitizers.util';
+import {
+  nitValidator,
+  phoneValidator,
   positiveDecimalValidator,
   trimmedMinLengthValidator,
   trimmedRequiredValidator,
@@ -71,20 +79,20 @@ import { UsersService } from '../../services/users.service';
     HlmSpinnerImports,
     HlmSwitchImports,
     HlmTableImports,
+    HlmTextareaImports,
     ConfirmDialogComponent,
     StatusBadgeComponent,
     TablePaginationComponent,
-    DynamicReportDrawerComponent,
   ],
   providers: [
     provideIcons({
       lucideUsers,
       lucideTruck,
+      lucideBriefcase,
       lucidePlus,
       lucidePencil,
       lucidePower,
       lucideSearch,
-      lucideFileBarChart2,
       lucideRefreshCw,
       lucideEye,
       lucideEyeOff,
@@ -118,9 +126,29 @@ export class UsersManagementComponent implements OnInit {
 
   readonly editDialogOpen = signal<boolean>(false);
   readonly editingItem = signal<UsuarioConRelaciones | null>(null);
+  readonly selectedEditRole = signal<RolUsuario>('Administrador');
+  readonly roleChangeConfirmOpen = signal<boolean>(false);
 
   readonly confirmTarget = signal<UsuarioConRelaciones | null>(null);
-  readonly reportOpen = signal<boolean>(false);
+
+  readonly isEditingSelf = computed(
+    () => this.editingItem()?.id_usuario === this.authService.user()?.id_usuario,
+  );
+
+  readonly pendingRoleChangeSummary = computed(() => {
+    const target = this.editingItem();
+    const nextRole = this.selectedEditRole();
+    if (!target) {
+      return '';
+    }
+    let detail = `El usuario ${target.nombre_completo} pasará del rol "${target.rol}" a "${nextRole}".`;
+    if (nextRole === 'Camionero' && !this.getCamion(target)) {
+      detail += ' Se registrará automáticamente su unidad de camión asignada.';
+    } else if (nextRole === 'Empresa Cliente' && !this.getEmpresa(target)) {
+      detail += ' Se creará su ficha de empresa cliente asociada.';
+    }
+    return detail;
+  });
 
   readonly createForm = this.fb.group({
     nombre_completo: ['', [trimmedRequiredValidator(), trimmedMinLengthValidator(3)]],
@@ -133,9 +161,14 @@ export class UsersManagementComponent implements OnInit {
 
   readonly editForm = this.fb.group({
     nombre_completo: ['', [trimmedRequiredValidator(), trimmedMinLengthValidator(3)]],
+    rol: ['Administrador' as RolUsuario, [Validators.required]],
     placa: [''],
     capacidad_kg: [0],
     disponible: [true],
+    nit: [''],
+    razon_social: [''],
+    telefono: [''],
+    direccion: [''],
   });
 
   readonly filteredItems = computed(() => {
@@ -157,11 +190,14 @@ export class UsersManagementComponent implements OnInit {
         return true;
       }
       const camion = this.getCamion(u);
+      const empresa = this.getEmpresa(u);
       return (
         u.nombre_completo.toLowerCase().includes(q) ||
         u.email.toLowerCase().includes(q) ||
         u.rol.toLowerCase().includes(q) ||
-        (camion?.placa.toLowerCase().includes(q) ?? false)
+        (camion?.placa.toLowerCase().includes(q) ?? false) ||
+        (empresa?.razon_social.toLowerCase().includes(q) ?? false) ||
+        (empresa?.nit.toLowerCase().includes(q) ?? false)
       );
     });
   });
@@ -175,94 +211,15 @@ export class UsersManagementComponent implements OnInit {
     return list.slice(start, start + size);
   });
 
-  readonly reportConfig: DynamicReportConfig<UsuarioConRelaciones> = {
-    title: 'Reporte de Usuarios, Roles y Flota',
-    subtitle: 'Personal operativo registrado, estado de acceso y camiones asignados.',
-    filenamePrefix: 'usuarios-roles-flota',
-    searchFields: [
-      (r) => r.nombre_completo,
-      (r) => r.email,
-      (r) => r.rol,
-      (r) => unwrapOne(r.camion)?.placa,
-    ],
-    columns: [
-      { key: 'nombre_completo', label: 'Nombre Completo', getValue: (r) => r.nombre_completo },
-      { key: 'email', label: 'Correo Electrónico', getValue: (r) => r.email },
-      { key: 'rol', label: 'Rol', getValue: (r) => r.rol },
-      {
-        key: 'activo',
-        label: 'Estado',
-        getValue: (r) => r.activo,
-        format: (r) => (r.activo ? 'Activo' : 'Inactivo'),
-      },
-      {
-        key: 'placa',
-        label: 'Placa Camión',
-        getValue: (r) => unwrapOne(r.camion)?.placa ?? null,
-        format: (r) => unwrapOne(r.camion)?.placa ?? '—',
-      },
-      {
-        key: 'capacidad_kg',
-        label: 'Capacidad (kg)',
-        align: 'right',
-        getValue: (r) => unwrapOne(r.camion)?.capacidad_kg ?? null,
-        format: (r) => {
-          const cap = unwrapOne(r.camion)?.capacidad_kg;
-          return cap !== undefined && cap !== null ? `${Number(cap).toFixed(2)} kg` : '—';
-        },
-      },
-      {
-        key: 'disponible',
-        label: 'Unidad Disponible',
-        defaultVisible: false,
-        getValue: (r) => unwrapOne(r.camion)?.disponible ?? null,
-        format: (r) => {
-          const cam = unwrapOne(r.camion);
-          if (!cam) return '—';
-          return cam.disponible ? 'Disponible' : 'Ocupado';
-        },
-      },
-    ],
-    filters: [
-      {
-        key: 'rol',
-        label: 'Rol operativo',
-        type: 'select',
-        options: ROLES_USUARIO.map((r) => ({ label: r, value: r })),
-        accessor: (r) => r.rol,
-      },
-      {
-        key: 'activo',
-        label: 'Estado de acceso',
-        type: 'boolean',
-        trueLabel: 'Activos',
-        falseLabel: 'Inactivos',
-        accessor: (r) => r.activo,
-      },
-    ],
-    summaryCards: [
-      {
-        label: 'Usuarios activos',
-        compute: (rows) => String(rows.filter((r) => r.activo).length),
-      },
-      {
-        label: 'Camiones registrados',
-        compute: (rows) => String(rows.filter((r) => unwrapOne(r.camion) !== null).length),
-      },
-      {
-        label: 'Capacidad flota (kg)',
-        compute: (rows) =>
-          rows
-            .reduce((acc, r) => acc + Number(unwrapOne(r.camion)?.capacidad_kg ?? 0), 0)
-            .toFixed(2),
-      },
-    ],
-  };
-
   constructor() {
     this.createForm.controls.rol.valueChanges.pipe(takeUntilDestroyed()).subscribe((rol) => {
       this.selectedCreateRole.set(rol);
-      this.applyTruckValidators(this.createForm, rol === 'Camionero');
+      this.applyCreateTruckValidators(rol === 'Camionero');
+    });
+
+    this.editForm.controls.rol.valueChanges.pipe(takeUntilDestroyed()).subscribe((rol) => {
+      this.selectedEditRole.set(rol);
+      this.applyEditRoleValidators(rol);
     });
   }
 
@@ -272,6 +229,10 @@ export class UsersManagementComponent implements OnInit {
 
   getCamion(u: UsuarioConRelaciones): Camion | null {
     return unwrapOne(u.camion);
+  }
+
+  getEmpresa(u: UsuarioConRelaciones): EmpresaCliente | null {
+    return unwrapOne(u.empresa_cliente);
   }
 
   async loadItems(): Promise<void> {
@@ -300,7 +261,7 @@ export class UsersManagementComponent implements OnInit {
       capacidad_kg: 0,
     });
     this.selectedCreateRole.set('Encargado de Almacén');
-    this.applyTruckValidators(this.createForm, false);
+    this.applyCreateTruckValidators(false);
     this.createDialogOpen.set(true);
   }
 
@@ -340,23 +301,41 @@ export class UsersManagementComponent implements OnInit {
   openEditDialog(item: UsuarioConRelaciones): void {
     this.editingItem.set(item);
     const camion = this.getCamion(item);
+    const empresa = this.getEmpresa(item);
+
     this.editForm.reset({
       nombre_completo: item.nombre_completo,
+      rol: item.rol,
       placa: camion?.placa ?? '',
       capacidad_kg: Number(camion?.capacidad_kg ?? 0),
       disponible: camion?.disponible ?? true,
+      nit: empresa?.nit ?? '',
+      razon_social: empresa?.razon_social ?? '',
+      telefono: empresa?.telefono ?? '',
+      direccion: empresa?.direccion ?? '',
     });
-    this.applyTruckValidators(this.editForm, item.rol === 'Camionero');
+
+    this.selectedEditRole.set(item.rol);
+    this.applyEditRoleValidators(item.rol);
+
+    if (item.id_usuario === this.authService.user()?.id_usuario) {
+      this.editForm.controls.rol.disable({ emitEvent: false });
+    } else {
+      this.editForm.controls.rol.enable({ emitEvent: false });
+    }
+
+    this.roleChangeConfirmOpen.set(false);
     this.editDialogOpen.set(true);
   }
 
   closeEditDialog(): void {
     if (!this.saving()) {
       this.editDialogOpen.set(false);
+      this.roleChangeConfirmOpen.set(false);
     }
   }
 
-  async onEditSubmit(): Promise<void> {
+  onEditSubmit(): void {
     const target = this.editingItem();
     if (!target) {
       return;
@@ -367,16 +346,49 @@ export class UsersManagementComponent implements OnInit {
     }
 
     const raw = this.editForm.getRawValue();
+    if (this.isEditingSelf() && raw.rol !== target.rol) {
+      toast.warning('No puede cambiar su propio rol mientras está en sesión.');
+      return;
+    }
+
+    if (raw.rol !== target.rol) {
+      this.roleChangeConfirmOpen.set(true);
+      return;
+    }
+
+    void this.executeEditSave();
+  }
+
+  async executeEditSave(): Promise<void> {
+    const target = this.editingItem();
+    if (!target) {
+      return;
+    }
+
+    const raw = this.editForm.getRawValue();
+    const effectiveRole: RolUsuario = this.isEditingSelf() ? target.rol : raw.rol;
+
     this.saving.set(true);
     try {
       await this.service.updateUser(target.id_usuario, {
         nombre_completo: sanitizeText(raw.nombre_completo),
-        rol: target.rol,
-        placa: target.rol === 'Camionero' ? sanitizePlate(raw.placa) : undefined,
-        capacidad_kg: target.rol === 'Camionero' ? Number(raw.capacidad_kg) : undefined,
-        disponible: target.rol === 'Camionero' ? raw.disponible : undefined,
+        rol: effectiveRole,
+        placa: effectiveRole === 'Camionero' ? sanitizePlate(raw.placa) : undefined,
+        capacidad_kg: effectiveRole === 'Camionero' ? Number(raw.capacidad_kg) : undefined,
+        disponible: effectiveRole === 'Camionero' ? raw.disponible : undefined,
+        nit: effectiveRole === 'Empresa Cliente' ? sanitizeNit(raw.nit) : undefined,
+        razon_social:
+          effectiveRole === 'Empresa Cliente' ? sanitizeText(raw.razon_social) : undefined,
+        telefono: effectiveRole === 'Empresa Cliente' ? sanitizePhone(raw.telefono) : undefined,
+        direccion: effectiveRole === 'Empresa Cliente' ? sanitizeText(raw.direccion) : undefined,
       });
-      toast.success('Usuario actualizado correctamente.');
+
+      toast.success(
+        effectiveRole !== target.rol
+          ? `Usuario actualizado y rol cambiado a "${effectiveRole}".`
+          : 'Usuario actualizado correctamente.',
+      );
+      this.roleChangeConfirmOpen.set(false);
       this.editDialogOpen.set(false);
       await this.loadItems();
     } catch (err) {
@@ -418,12 +430,9 @@ export class UsersManagementComponent implements OnInit {
     }
   }
 
-  private applyTruckValidators(
-    formGroup: typeof this.createForm | typeof this.editForm,
-    isTruckDriver: boolean,
-  ): void {
-    const placaCtrl = formGroup.controls.placa;
-    const capCtrl = formGroup.controls.capacidad_kg;
+  private applyCreateTruckValidators(isTruckDriver: boolean): void {
+    const placaCtrl = this.createForm.controls.placa;
+    const capCtrl = this.createForm.controls.capacidad_kg;
 
     if (isTruckDriver) {
       placaCtrl.setValidators([trimmedRequiredValidator(), vehiclePlateValidator()]);
@@ -434,6 +443,37 @@ export class UsersManagementComponent implements OnInit {
     }
     placaCtrl.updateValueAndValidity({ emitEvent: false });
     capCtrl.updateValueAndValidity({ emitEvent: false });
+  }
+
+  private applyEditRoleValidators(role: RolUsuario): void {
+    const { placa, capacidad_kg, nit, razon_social, telefono, direccion } = this.editForm.controls;
+
+    if (role === 'Camionero') {
+      placa.setValidators([trimmedRequiredValidator(), vehiclePlateValidator()]);
+      capacidad_kg.setValidators([Validators.required, positiveDecimalValidator(false)]);
+    } else {
+      placa.clearValidators();
+      capacidad_kg.clearValidators();
+    }
+
+    if (role === 'Empresa Cliente') {
+      nit.setValidators([trimmedRequiredValidator(), nitValidator()]);
+      razon_social.setValidators([trimmedRequiredValidator(), trimmedMinLengthValidator(3)]);
+      telefono.setValidators([trimmedRequiredValidator(), phoneValidator()]);
+      direccion.setValidators([trimmedRequiredValidator(), trimmedMinLengthValidator(5)]);
+    } else {
+      nit.clearValidators();
+      razon_social.clearValidators();
+      telefono.clearValidators();
+      direccion.clearValidators();
+    }
+
+    placa.updateValueAndValidity({ emitEvent: false });
+    capacidad_kg.updateValueAndValidity({ emitEvent: false });
+    nit.updateValueAndValidity({ emitEvent: false });
+    razon_social.updateValueAndValidity({ emitEvent: false });
+    telefono.updateValueAndValidity({ emitEvent: false });
+    direccion.updateValueAndValidity({ emitEvent: false });
   }
 
   onSearch(value: string): void {

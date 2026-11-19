@@ -64,7 +64,7 @@ export function phoneValidator(): ValidatorFn {
       return null;
     }
     const digits = val.replace(/\D/g, '');
-    if (digits.length < 7 || digits.length > 15 || !/^[+\d\s()-]{7,20}$/.test(val)) {
+    if (digits.length < 7 || digits.length > 15 || !/^\+?[\d\s-]{7,20}$/.test(val)) {
       return { phoneFormat: true };
     }
     return null;

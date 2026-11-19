@@ -1,9 +1,10 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideAlertCircle,
+  lucideArrowLeft,
   lucideBuilding2,
   lucideEye,
   lucideEyeOff,
@@ -26,6 +27,7 @@ import { translateSupabaseError } from '../../../core/utils/supabase-error.util'
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     ReactiveFormsModule,
+    RouterLink,
     NgIcon,
     HlmAlertImports,
     HlmButtonImports,
@@ -43,6 +45,7 @@ import { translateSupabaseError } from '../../../core/utils/supabase-error.util'
       lucideEyeOff,
       lucideAlertCircle,
       lucideShieldCheck,
+      lucideArrowLeft,
     }),
   ],
   templateUrl: './login.component.html',

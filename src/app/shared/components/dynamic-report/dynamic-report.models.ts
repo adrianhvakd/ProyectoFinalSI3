@@ -15,6 +15,7 @@ export interface ReportFilterOption {
 export type ReportFilterDef<T> =
   | {
       key: string;
+      columnKey: string;
       label: string;
       type: 'select';
       options: readonly ReportFilterOption[];
@@ -22,6 +23,7 @@ export type ReportFilterDef<T> =
     }
   | {
       key: string;
+      columnKey: string;
       label: string;
       type: 'boolean';
       trueLabel?: string;
@@ -30,6 +32,7 @@ export type ReportFilterDef<T> =
     }
   | {
       key: string;
+      columnKey: string;
       label: string;
       type: 'date-range';
       accessor: (row: T) => string | null | undefined;

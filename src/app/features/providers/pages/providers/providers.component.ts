@@ -3,7 +3,6 @@ import { NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideBuilding2,
-  lucideFileBarChart2,
   lucidePencil,
   lucidePlus,
   lucidePower,
@@ -21,21 +20,19 @@ import { HlmNativeSelectImports } from '@spartan-ng/helm/native-select';
 import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
 import { HlmSpinnerImports } from '@spartan-ng/helm/spinner';
 import { HlmTableImports } from '@spartan-ng/helm/table';
-import { HlmTextareaImports } from '@spartan-ng/helm/textarea';
 import { Proveedor } from '../../../../core/models/domain.models';
 import { translateSupabaseError } from '../../../../core/utils/supabase-error.util';
 import { ConfirmDialogComponent } from '../../../../shared/components/confirm-dialog/confirm-dialog.component';
-import { DynamicReportDrawerComponent } from '../../../../shared/components/dynamic-report/dynamic-report-drawer.component';
-import { DynamicReportConfig } from '../../../../shared/components/dynamic-report/dynamic-report.models';
 import { StatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge.component';
 import { TablePaginationComponent } from '../../../../shared/components/table-pagination/table-pagination.component';
 import {
-  sanitizeMultilineText,
   sanitizeNit,
+  sanitizePhone,
   sanitizeText,
 } from '../../../../shared/utils/sanitizers.util';
 import {
   nitValidator,
+  phoneValidator,
   trimmedMinLengthValidator,
   trimmedRequiredValidator,
 } from '../../../../shared/utils/validators.util';
@@ -57,11 +54,9 @@ import { ProveedorPayload, ProvidersService } from '../../services/providers.ser
     HlmSkeletonImports,
     HlmSpinnerImports,
     HlmTableImports,
-    HlmTextareaImports,
     ConfirmDialogComponent,
     StatusBadgeComponent,
     TablePaginationComponent,
-    DynamicReportDrawerComponent,
   ],
   providers: [
     provideIcons({
@@ -70,7 +65,6 @@ import { ProveedorPayload, ProvidersService } from '../../services/providers.ser
       lucidePencil,
       lucidePower,
       lucideSearch,
-      lucideFileBarChart2,
       lucideRefreshCw,
     }),
   ],
@@ -95,13 +89,12 @@ export class ProvidersComponent implements OnInit {
   readonly dialogOpen = signal<boolean>(false);
   readonly editingItem = signal<Proveedor | null>(null);
   readonly confirmTarget = signal<Proveedor | null>(null);
-  readonly reportOpen = signal<boolean>(false);
 
   readonly form = this.fb.group({
     identificacion_fiscal: ['', [trimmedRequiredValidator(), nitValidator()]],
     razon_social: ['', [trimmedRequiredValidator(), trimmedMinLengthValidator(3)]],
     pais_origen: ['', [trimmedRequiredValidator(), trimmedMinLengthValidator(2)]],
-    datos_contacto: ['', [trimmedRequiredValidator(), trimmedMinLengthValidator(5)]],
+    datos_contacto: ['', [trimmedRequiredValidator(), phoneValidator()]],
   });
 
   readonly distinctCountries = computed(() =>
@@ -143,57 +136,6 @@ export class ProvidersComponent implements OnInit {
     const start = (current - 1) * size;
     return list.slice(start, start + size);
   });
-
-  readonly reportConfig = computed<DynamicReportConfig<Proveedor>>(() => ({
-    title: 'Reporte de Directorio de Proveedores',
-    subtitle: 'Proveedores internacionales y locales habilitados para recepción de materias primas.',
-    filenamePrefix: 'directorio-proveedores',
-    searchFields: [
-      (r) => r.identificacion_fiscal,
-      (r) => r.razon_social,
-      (r) => r.pais_origen,
-      (r) => r.datos_contacto,
-    ],
-    columns: [
-      { key: 'identificacion_fiscal', label: 'Identificación Fiscal', getValue: (r) => r.identificacion_fiscal },
-      { key: 'razon_social', label: 'Razón Social', getValue: (r) => r.razon_social },
-      { key: 'pais_origen', label: 'País de Origen', getValue: (r) => r.pais_origen },
-      { key: 'datos_contacto', label: 'Datos de Contacto', getValue: (r) => r.datos_contacto },
-      {
-        key: 'activo',
-        label: 'Estado',
-        getValue: (r) => r.activo,
-        format: (r) => (r.activo ? 'Activo' : 'Inactivo'),
-      },
-    ],
-    filters: [
-      {
-        key: 'activo',
-        label: 'Estado',
-        type: 'boolean',
-        trueLabel: 'Activos',
-        falseLabel: 'Inactivos',
-        accessor: (r) => r.activo,
-      },
-      {
-        key: 'pais_origen',
-        label: 'País de origen',
-        type: 'select',
-        options: this.distinctCountries().map((c) => ({ label: c, value: c })),
-        accessor: (r) => r.pais_origen,
-      },
-    ],
-    summaryCards: [
-      {
-        label: 'Proveedores activos',
-        compute: (rows) => String(rows.filter((r) => r.activo).length),
-      },
-      {
-        label: 'Países representados',
-        compute: (rows) => String(new Set(rows.map((r) => r.pais_origen)).size),
-      },
-    ],
-  }));
 
   ngOnInit(): void {
     void this.loadItems();
@@ -253,7 +195,7 @@ export class ProvidersComponent implements OnInit {
       identificacion_fiscal: sanitizeNit(raw.identificacion_fiscal),
       razon_social: sanitizeText(raw.razon_social),
       pais_origen: sanitizeText(raw.pais_origen),
-      datos_contacto: sanitizeMultilineText(raw.datos_contacto),
+      datos_contacto: sanitizePhone(raw.datos_contacto),
     };
 
     this.saving.set(true);

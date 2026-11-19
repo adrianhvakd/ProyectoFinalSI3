@@ -1,0 +1,37 @@
+<div class="flex flex-col gap-2">
+  @if (!readonly()) {
+    <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+      <span class="text-muted-foreground flex items-center gap-1">
+        <ng-icon name="lucideMapPin" class="text-primary shrink-0" />
+        <span>Haga clic o arrastre el marcador para fijar el punto exacto.</span>
+      </span>
+
+      <div class="flex items-center gap-1.5">
+        <button
+          type="button"
+          hlmBtn
+          variant="outline"
+          size="xs"
+          [disabled]="locating()"
+          (click)="useCurrentGeolocation()"
+        >
+          @if (locating()) {
+            <hlm-spinner />
+          } @else {
+            <ng-icon name="lucideCrosshair" />
+          }
+          <span>Mi ubicación</span>
+        </button>
+
+        <button type="button" hlmBtn variant="ghost" size="xs" (click)="centerOnDefault()">
+          <ng-icon name="lucideRotateCcw" />
+          <span>Potosí</span>
+        </button>
+      </div>
+    </div>
+  }
+
+  <div class="relative isolate z-0 rounded-lg border border-border overflow-hidden bg-muted/30">
+    <div #mapContainer [class]="'w-full ' + heightClass()"></div>
+  </div>
+</div>

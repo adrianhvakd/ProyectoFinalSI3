@@ -8,10 +8,10 @@ import { SupabaseService } from '../../../core/services/supabase.service';
 import { translateSupabaseError } from '../../../core/utils/supabase-error.util';
 
 const SELECT_PAGOS =
-  'id_pago, numero_pedido, metodo, monto, url_comprobante_qr, estado, motivo_observacion, fecha_registro, fecha_verificacion, pedido(numero_pedido, id_empresa_cliente, modalidad_entrega, direccion_destino, subtotal_mayorista, estado_pedido, estado_entrega, fecha_creacion, empresa_cliente(id_empresa_cliente, nit, razon_social, telefono))';
+  'id_pago, numero_pedido, metodo, monto, url_comprobante_qr, estado, motivo_observacion, fecha_registro, fecha_verificacion, pedido(numero_pedido, id_empresa_cliente, modalidad_entrega, direccion_destino, latitud, longitud, celular_contacto, subtotal_mayorista, estado_pedido, estado_entrega, fecha_creacion, empresa_cliente(id_empresa_cliente, nit, razon_social, telefono))';
 
 const SELECT_REPORTE_VENTAS =
-  'id_pago, numero_pedido, empresa_cliente, nit_cliente, metodo_pago, subtotal_mayorista, estado_pago, estado_pedido, estado_entrega, modalidad_entrega, direccion_destino, url_comprobante_qr, motivo_observacion, fecha_pago, fecha_creacion, fecha_verificacion';
+  'id_pago, numero_pedido, empresa_cliente, nit_cliente, metodo_pago, subtotal_mayorista, estado_pago, estado_pedido, estado_entrega, modalidad_entrega, direccion_destino, latitud, longitud, celular_contacto, url_comprobante_qr, motivo_observacion, fecha_pago, fecha_creacion, fecha_verificacion';
 
 @Injectable({
   providedIn: 'root',

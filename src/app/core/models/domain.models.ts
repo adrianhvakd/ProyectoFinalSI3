@@ -18,6 +18,35 @@ export type MetodoPago = 'QR' | 'Efectivo';
 
 export type EstadoPago = 'Pendiente' | 'Pendiente de verificación' | 'Aprobado' | 'Rechazado';
 
+export interface ParametroCalidad {
+  key: string;
+  label: string;
+  requerido: boolean;
+}
+
+export const UNIDADES_MEDIDA_INDUSTRIALES = [
+  'Kilogramo (kg)',
+  'Tonelada (t)',
+  'Quintal (qq)',
+  'Litro (L)',
+  'Saco',
+  'Bolsa',
+  'Caja',
+  'Tambor',
+  'Metro (m)',
+  'Unidad',
+] as const;
+
+export const STANDARD_QUALITY_PARAMETERS: readonly ParametroCalidad[] = [
+  { key: 'integridad_empaque', label: 'Integridad del empaque', requerido: true },
+  { key: 'humedad_rango', label: 'Humedad dentro de rango', requerido: true },
+  { key: 'pureza_certificada', label: 'Pureza / Concentración certificada', requerido: true },
+  { key: 'ausencia_contaminacion', label: 'Ausencia de contaminación física', requerido: true },
+  { key: 'etiquetado_trazabilidad', label: 'Etiquetado y trazabilidad de origen', requerido: true },
+  { key: 'temperatura_conservacion', label: 'Temperatura de conservación', requerido: false },
+  { key: 'certificado_analisis', label: 'Certificado de análisis del proveedor', requerido: false },
+] as const;
+
 export interface Usuario {
   id_usuario: string;
   email: string;
@@ -32,7 +61,7 @@ export interface EmpresaCliente {
   nit: string;
   razon_social: string;
   telefono: string;
-  direccion_entrega: string;
+  direccion: string;
 }
 
 export interface Camion {
@@ -68,7 +97,7 @@ export interface MateriaPrima {
   unidad_medida: string;
   precio_mayorista: number;
   cantidad_minima_venta: number;
-  parametros_calidad_exigidos: string;
+  parametros_calidad_exigidos: ParametroCalidad[];
   stock_disponible_total: number;
 }
 
@@ -80,7 +109,10 @@ export interface ControlCalidad {
   informe_tecnico_hallazgos: string | null;
   resolucion_secundaria: string | null;
   fecha_evaluacion: string;
-  usuario?: Pick<Usuario, 'id_usuario' | 'nombre_completo'> | Pick<Usuario, 'id_usuario' | 'nombre_completo'>[] | null;
+  usuario?:
+    | Pick<Usuario, 'id_usuario' | 'nombre_completo'>
+    | Pick<Usuario, 'id_usuario' | 'nombre_completo'>[]
+    | null;
 }
 
 export interface Lote {
@@ -106,7 +138,10 @@ export interface DetallePedido {
   cantidad_solicitada: number;
   precio_unitario_mayorista: number;
   subtotal: number;
-  materia_prima?: Pick<MateriaPrima, 'id_materia_prima' | 'codigo' | 'nombre' | 'unidad_medida'> | Pick<MateriaPrima, 'id_materia_prima' | 'codigo' | 'nombre' | 'unidad_medida'>[] | null;
+  materia_prima?:
+    | Pick<MateriaPrima, 'id_materia_prima' | 'codigo' | 'nombre' | 'unidad_medida'>
+    | Pick<MateriaPrima, 'id_materia_prima' | 'codigo' | 'nombre' | 'unidad_medida'>[]
+    | null;
   lote?: Pick<Lote, 'id_lote' | 'codigo_unico'> | Pick<Lote, 'id_lote' | 'codigo_unico'>[] | null;
 }
 
@@ -128,6 +163,9 @@ export interface Pedido {
   id_empresa_cliente: string;
   modalidad_entrega: ModalidadEntrega;
   direccion_destino: string | null;
+  latitud: number | null;
+  longitud: number | null;
+  celular_contacto: string | null;
   subtotal_mayorista: number;
   estado_pedido: EstadoPedido;
   estado_entrega: EstadoEntrega;
@@ -137,8 +175,14 @@ export interface Pedido {
   pago?: Pago | Pago[] | null;
 }
 
-export interface PedidoConEmpresa extends Omit<Pedido, 'detalle_pedido' | 'pago' | 'empresa_cliente'> {
-  empresa_cliente?: Pick<EmpresaCliente, 'id_empresa_cliente' | 'nit' | 'razon_social' | 'telefono'> | Pick<EmpresaCliente, 'id_empresa_cliente' | 'nit' | 'razon_social' | 'telefono'>[] | null;
+export interface PedidoConEmpresa extends Omit<
+  Pedido,
+  'detalle_pedido' | 'pago' | 'empresa_cliente'
+> {
+  empresa_cliente?:
+    | Pick<EmpresaCliente, 'id_empresa_cliente' | 'nit' | 'razon_social' | 'telefono'>
+    | Pick<EmpresaCliente, 'id_empresa_cliente' | 'nit' | 'razon_social' | 'telefono'>[]
+    | null;
 }
 
 export interface ReporteLoteRow {
@@ -172,6 +216,9 @@ export interface ReporteVentasPagosRow {
   estado_entrega: EstadoEntrega;
   modalidad_entrega: ModalidadEntrega;
   direccion_destino: string | null;
+  latitud: number | null;
+  longitud: number | null;
+  celular_contacto: string | null;
   url_comprobante_qr: string | null;
   motivo_observacion: string | null;
   fecha_pago: string;
@@ -205,6 +252,9 @@ export interface RpcCrearPedidoConPagoParams {
   p_metodo_pago: MetodoPago;
   p_url_comprobante_qr: string | null;
   p_items: RpcPedidoItemParam[];
+  p_latitud: number | null;
+  p_longitud: number | null;
+  p_celular_contacto: string | null;
 }
 
 export interface RpcVerificarPagoParams {
@@ -260,4 +310,82 @@ export function unwrapOne<T>(value: T | T[] | null | undefined): T | null {
     return null;
   }
   return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
+function toParameterKey(label: string, index: number): string {
+  const slug = label
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return slug || `parametro_${index + 1}`;
+}
+
+export function normalizeQualityParameters(raw: unknown): ParametroCalidad[] {
+  if (!raw) {
+    return [];
+  }
+
+  let parsed: unknown = raw;
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return [];
+    }
+    if (trimmed.startsWith('[')) {
+      try {
+        parsed = JSON.parse(trimmed);
+      } catch {
+        parsed = trimmed;
+      }
+    }
+  }
+
+  if (Array.isArray(parsed)) {
+    return parsed
+      .map((entry, idx): ParametroCalidad | null => {
+        if (typeof entry === 'string') {
+          const label = entry.trim();
+          return label ? { key: toParameterKey(label, idx), label, requerido: true } : null;
+        }
+        if (typeof entry === 'object' && entry !== null) {
+          const record = entry as Record<string, unknown>;
+          const label = String(record['label'] ?? record['key'] ?? '').trim();
+          if (!label) {
+            return null;
+          }
+          const rawKey = String(record['key'] ?? '').trim();
+          return {
+            key: rawKey || toParameterKey(label, idx),
+            label,
+            requerido: Boolean(record['requerido']),
+          };
+        }
+        return null;
+      })
+      .filter((item): item is ParametroCalidad => item !== null);
+  }
+
+  if (typeof parsed === 'string') {
+    const separator = parsed.includes('\n') || parsed.includes(';') ? /[\n;]+/ : /[,]+/;
+    return parsed
+      .split(separator)
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0)
+      .map((label, idx) => ({
+        key: toParameterKey(label, idx),
+        label,
+        requerido: true,
+      }));
+  }
+
+  return [];
+}
+
+export function formatActiveQualityParameters(raw: unknown): string {
+  const active = normalizeQualityParameters(raw)
+    .filter((p) => p.requerido)
+    .map((p) => p.label);
+  return active.length > 0 ? active.join(' · ') : 'Sin parámetros activos';
 }

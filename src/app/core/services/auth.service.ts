@@ -11,8 +11,18 @@ import {
 import { translateSupabaseError } from '../utils/supabase-error.util';
 import { SupabaseService } from './supabase.service';
 
+export interface RegisterClientCompanyInput {
+  nombre_completo: string;
+  email: string;
+  password: string;
+  nit: string;
+  razon_social: string;
+  telefono: string;
+  direccion: string;
+}
+
 const USER_PROFILE_SELECT =
-  'id_usuario, email, nombre_completo, rol, activo, empresa_cliente(id_empresa_cliente, id_usuario, nit, razon_social, telefono, direccion_entrega), camion(id_camion, id_usuario, placa, capacidad_kg, disponible)';
+  'id_usuario, email, nombre_completo, rol, activo, empresa_cliente(id_empresa_cliente, id_usuario, nit, razon_social, telefono, direccion), camion(id_camion, id_usuario, placa, capacidad_kg, disponible)';
 
 @Injectable({
   providedIn: 'root',
@@ -111,13 +121,69 @@ export class AuthService {
     }
   }
 
+  async registerClientCompany(input: RegisterClientCompanyInput): Promise<UsuarioConRelaciones> {
+    const cleanEmail = input.email.trim().toLowerCase();
+    const { data, error } = await this.supabase.client.auth.signUp({
+      email: cleanEmail,
+      password: input.password,
+      options: {
+        data: {
+          nombre_completo: input.nombre_completo,
+          rol: 'Empresa Cliente',
+          nit: input.nit,
+          razon_social: input.razon_social,
+          telefono: input.telefono,
+          direccion: input.direccion,
+        },
+      },
+    });
+
+    if (error) {
+      throw new Error(translateSupabaseError(error, 'No se pudo completar el registro de su empresa.'));
+    }
+
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      throw new Error('El correo electrónico ya se encuentra registrado en el sistema.');
+    }
+
+    if (!data.user) {
+      throw new Error('No se recibió confirmación del usuario registrado.');
+    }
+
+    if (!data.session) {
+      const { error: signInError } = await this.supabase.client.auth.signInWithPassword({
+        email: cleanEmail,
+        password: input.password,
+      });
+      if (signInError) {
+        throw new Error(
+          translateSupabaseError(
+            signInError,
+            'La empresa fue creada, pero requiere confirmar acceso o iniciar sesión.',
+          ),
+        );
+      }
+    }
+
+    try {
+      const profile = await this.fetchProfileWithRetry(data.user.id);
+      this._user.set(profile);
+      this._loading.set(false);
+      return profile;
+    } catch (profileErr) {
+      await this.supabase.client.auth.signOut().catch(() => undefined);
+      this._user.set(null);
+      throw profileErr;
+    }
+  }
+
   async signOut(): Promise<void> {
     try {
       await this.supabase.client.auth.signOut();
     } finally {
       this._user.set(null);
       this.initPromise = null;
-      await this.router.navigateByUrl('/login');
+      await this.router.navigateByUrl('/');
     }
   }
 
@@ -145,7 +211,7 @@ export class AuthService {
       case 'Camionero':
         return '/account';
       default:
-        return '/login';
+        return '/';
     }
   }
 
@@ -155,6 +221,15 @@ export class AuthService {
       this._user.set(profile);
     } catch {
       await this.signOut();
+    }
+  }
+
+  private async fetchProfileWithRetry(userId: string): Promise<UsuarioConRelaciones> {
+    try {
+      return await this.fetchAndValidateProfile(userId);
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      return await this.fetchAndValidateProfile(userId);
     }
   }
 

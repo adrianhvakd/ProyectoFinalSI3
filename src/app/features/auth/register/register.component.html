@@ -1,0 +1,281 @@
+<div class="min-h-dvh bg-background flex flex-col lg:grid lg:grid-cols-12">
+  <!-- Panel institucional izquierdo (desktop) -->
+  <aside
+    class="hidden lg:flex lg:col-span-5 xl:col-span-5 bg-primary text-primary-foreground flex-col justify-between p-12 border-r border-border"
+  >
+    <a routerLink="/" class="flex items-center gap-3 w-fit">
+      <div
+        class="size-10 rounded-lg bg-primary-foreground/10 border border-primary-foreground/20 flex items-center justify-center"
+      >
+        <ng-icon name="lucideBuilding2" class="text-xl" />
+      </div>
+      <div>
+        <p class="text-sm font-semibold tracking-tight">Importadora Industrial B2B</p>
+        <p class="text-xs text-primary-foreground/75">Portal Mayorista de Clientes</p>
+      </div>
+    </a>
+
+    <div class="max-w-md flex flex-col gap-5">
+      <h1 class="text-3xl font-semibold tracking-tight leading-tight">
+        Registro corporativo de Empresas Clientes.
+      </h1>
+      <p class="text-sm text-primary-foreground/80 leading-relaxed">
+        Complete la ficha fiscal y los datos de contacto de su empresa para acceder al catálogo de
+        materias primas aprobadas, realizar pedidos mayoristas y hacer seguimiento de entregas.
+      </p>
+
+      <div class="grid grid-cols-1 gap-3 pt-4 border-t border-primary-foreground/15 text-sm">
+        <div class="flex items-center gap-2.5 text-primary-foreground/90">
+          <ng-icon name="lucideShieldCheck" class="text-base shrink-0" />
+          <span>Habilitación inmediata como Empresa Cliente verificada</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="text-xs text-primary-foreground/65">
+      Sistema Empresarial B2B &middot; Alta segura mediante autenticación cifrada
+    </p>
+  </aside>
+
+  <!-- Formulario de autorregistro -->
+  <main class="flex-1 lg:col-span-7 xl:col-span-7 flex items-center justify-center p-6 sm:p-10">
+    <div class="w-full max-w-2xl flex flex-col gap-5">
+      <div class="flex items-center justify-between gap-3">
+        <a
+          routerLink="/"
+          class="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ng-icon name="lucideArrowLeft" class="text-sm" />
+          <span>Volver al inicio</span>
+        </a>
+
+        <a
+          routerLink="/login"
+          class="text-xs font-medium text-primary hover:underline"
+        >
+          Ya tengo cuenta &middot; Iniciar sesión
+        </a>
+      </div>
+
+      <section hlmCard class="shadow-sm">
+        <div hlmCardHeader>
+          <h2 hlmCardTitle class="text-xl font-semibold">Registrar Empresa Cliente</h2>
+          <p hlmCardDescription>
+            Ingrese la información fiscal de su empresa y las credenciales del representante.
+          </p>
+        </div>
+
+        <form [formGroup]="form" (ngSubmit)="onSubmit()" class="flex flex-col gap-5" hlmCardContent>
+          @if (errorMessage()) {
+            <div hlmAlert variant="destructive">
+              <ng-icon name="lucideAlertCircle" />
+              <h3 hlmAlertTitle>No se pudo completar el registro</h3>
+              <p hlmAlertDescription>{{ errorMessage() }}</p>
+            </div>
+          }
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div hlmField>
+              <label hlmFieldLabel for="reg-razon">Razón social *</label>
+              <input
+                hlmInput
+                id="reg-razon"
+                formControlName="razon_social"
+                placeholder="Industrias Manufactureras del Sur S.R.L."
+              />
+              @if (form.controls.razon_social.hasError('required')) {
+                <hlm-field-error validator="required">La razón social es obligatoria.</hlm-field-error>
+              }
+              @if (form.controls.razon_social.hasError('minlength')) {
+                <hlm-field-error validator="minlength">Mínimo 3 caracteres.</hlm-field-error>
+              }
+            </div>
+
+            <div hlmField>
+              <label hlmFieldLabel for="reg-nit">NIT *</label>
+              <input
+                hlmInput
+                id="reg-nit"
+                formControlName="nit"
+                placeholder="1028374021"
+                class="font-mono uppercase"
+              />
+              @if (form.controls.nit.hasError('required')) {
+                <hlm-field-error validator="required">El NIT es obligatorio.</hlm-field-error>
+              }
+              @if (form.controls.nit.hasError('nitFormat')) {
+                <hlm-field-error validator="nitFormat">
+                  Formato de NIT inválido (5 a 20 caracteres alfanuméricos).
+                </hlm-field-error>
+              }
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div hlmField>
+              <label hlmFieldLabel for="reg-tel">Teléfono corporativo / celular *</label>
+              <input
+                hlmInput
+                id="reg-tel"
+                type="tel"
+                formControlName="telefono"
+                placeholder="+591 70012345"
+                class="tabular-nums"
+              />
+              @if (form.controls.telefono.hasError('required')) {
+                <hlm-field-error validator="required">El teléfono es obligatorio.</hlm-field-error>
+              }
+              @if (form.controls.telefono.hasError('phoneFormat')) {
+                <hlm-field-error validator="phoneFormat">
+                  Ingrese un teléfono válido (7 a 15 dígitos).
+                </hlm-field-error>
+              }
+            </div>
+
+            <div hlmField>
+              <label hlmFieldLabel for="reg-rep">Nombre completo del representante *</label>
+              <input
+                hlmInput
+                id="reg-rep"
+                formControlName="nombre_completo"
+                placeholder="Roberto Salvatierra"
+              />
+              @if (form.controls.nombre_completo.hasError('required')) {
+                <hlm-field-error validator="required">
+                  El nombre del representante es obligatorio.
+                </hlm-field-error>
+              }
+              @if (form.controls.nombre_completo.hasError('minlength')) {
+                <hlm-field-error validator="minlength">Mínimo 3 caracteres.</hlm-field-error>
+              }
+            </div>
+          </div>
+
+          <div hlmField>
+            <label hlmFieldLabel for="reg-dir">Dirección de la empresa *</label>
+            <textarea
+              hlmTextarea
+              id="reg-dir"
+              rows="2"
+              formControlName="direccion"
+              placeholder="Av. Tinkuy 140, Parque Industrial, Potosí"
+            ></textarea>
+            @if (form.controls.direccion.hasError('required')) {
+              <hlm-field-error validator="required">La dirección es obligatoria.</hlm-field-error>
+            }
+            @if (form.controls.direccion.hasError('minlength')) {
+              <hlm-field-error validator="minlength">
+                Ingrese una dirección detallada (mínimo 5 caracteres).
+              </hlm-field-error>
+            }
+          </div>
+
+          <hlm-separator />
+
+          <div hlmField>
+            <label hlmFieldLabel for="reg-email">Correo electrónico de acceso *</label>
+            <input
+              hlmInput
+              id="reg-email"
+              type="email"
+              formControlName="email"
+              autocomplete="email"
+              placeholder="compras@suempresa.com"
+            />
+            @if (form.controls.email.hasError('required')) {
+              <hlm-field-error validator="required">El correo es obligatorio.</hlm-field-error>
+            }
+            @if (form.controls.email.hasError('email')) {
+              <hlm-field-error validator="email">Formato de correo inválido.</hlm-field-error>
+            }
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div hlmField>
+              <label hlmFieldLabel for="reg-pass">Contraseña *</label>
+              <div class="relative">
+                <input
+                  hlmInput
+                  id="reg-pass"
+                  [type]="showPassword() ? 'text' : 'password'"
+                  formControlName="password"
+                  autocomplete="new-password"
+                  placeholder="Mínimo 8 caracteres"
+                  class="pr-10"
+                />
+                <button
+                  type="button"
+                  hlmBtn
+                  variant="ghost"
+                  size="icon-xs"
+                  (click)="togglePasswordVisibility()"
+                  [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                  class="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                >
+                  <ng-icon [name]="showPassword() ? 'lucideEyeOff' : 'lucideEye'" />
+                </button>
+              </div>
+              @if (form.controls.password.hasError('required')) {
+                <hlm-field-error validator="required">La contraseña es obligatoria.</hlm-field-error>
+              }
+              @if (form.controls.password.hasError('minlength')) {
+                <hlm-field-error validator="minlength">
+                  Debe tener al menos 8 caracteres.
+                </hlm-field-error>
+              }
+            </div>
+
+            <div hlmField>
+              <label hlmFieldLabel for="reg-confirm">Confirmar contraseña *</label>
+              <input
+                hlmInput
+                id="reg-confirm"
+                [type]="showPassword() ? 'text' : 'password'"
+                formControlName="confirm_password"
+                autocomplete="new-password"
+                placeholder="Repita su contraseña"
+                [attr.aria-invalid]="
+                  form.hasError('passwordMismatch') && form.controls.confirm_password.touched
+                    ? 'true'
+                    : null
+                "
+              />
+              @if (form.controls.confirm_password.hasError('required')) {
+                <hlm-field-error validator="required">
+                  Confirme su contraseña.
+                </hlm-field-error>
+              }
+              @if (form.hasError('passwordMismatch') && form.controls.confirm_password.touched) {
+                <p class="text-xs font-medium text-destructive" role="alert">
+                  Las contraseñas ingresadas no coinciden.
+                </p>
+              }
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            hlmBtn
+            size="lg"
+            class="w-full mt-1"
+            [disabled]="submitting()"
+          >
+            @if (submitting()) {
+              <hlm-spinner />
+              <span>Registrando empresa...</span>
+            } @else {
+              <span>Crear cuenta de Empresa Cliente</span>
+            }
+          </button>
+
+          <p class="text-center text-xs text-muted-foreground pt-1">
+            ¿Su empresa ya está registrada?
+            <a routerLink="/login" class="font-semibold text-primary hover:underline ms-1">
+              Iniciar sesión
+            </a>
+          </p>
+        </form>
+      </section>
+    </div>
+  </main>
+</div>

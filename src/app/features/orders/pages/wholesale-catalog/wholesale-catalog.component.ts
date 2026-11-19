@@ -19,6 +19,7 @@ import {
   lucideClipboardList,
   lucideMapPin,
   lucidePackageCheck,
+  lucidePhone,
   lucidePlus,
   lucideQrCode,
   lucideRefreshCw,
@@ -50,8 +51,13 @@ import {
 import { AuthService } from '../../../../core/services/auth.service';
 import { translateSupabaseError } from '../../../../core/utils/supabase-error.util';
 import { ConfirmDialogComponent } from '../../../../shared/components/confirm-dialog/confirm-dialog.component';
-import { sanitizeText } from '../../../../shared/utils/sanitizers.util';
 import {
+  GeoCoordinates,
+  LocationPickerMapComponent,
+} from '../../../../shared/components/location-picker-map/location-picker-map.component';
+import { sanitizePhone, sanitizeText } from '../../../../shared/utils/sanitizers.util';
+import {
+  phoneValidator,
   trimmedMinLengthValidator,
   trimmedRequiredValidator,
   validateAttachmentFile,
@@ -77,6 +83,9 @@ export interface CartItem {
   subtotal: number;
 }
 
+const DEFAULT_BOLIVIA_LAT = -19.5836;
+const DEFAULT_BOLIVIA_LNG = -65.7531;
+
 @Component({
   selector: 'app-wholesale-catalog',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -99,6 +108,7 @@ export interface CartItem {
     HlmSpinnerImports,
     HlmTextareaImports,
     ConfirmDialogComponent,
+    LocationPickerMapComponent,
   ],
   providers: [
     provideIcons({
@@ -110,6 +120,7 @@ export interface CartItem {
       lucideTruck,
       lucidePackageCheck,
       lucideMapPin,
+      lucidePhone,
       lucideQrCode,
       lucideBanknote,
       lucideUpload,
@@ -137,6 +148,10 @@ export class WholesaleCatalogComponent implements OnInit, OnDestroy {
 
   readonly selectedDelivery = signal<ModalidadEntrega>('Recojo en el local');
   readonly selectedPaymentMethod = signal<MetodoPago>('QR');
+  readonly selectedLat = signal<number | null>(DEFAULT_BOLIVIA_LAT);
+  readonly selectedLng = signal<number | null>(DEFAULT_BOLIVIA_LNG);
+  readonly locationError = signal<string | null>(null);
+
   readonly selectedFile = signal<File | null>(null);
   readonly filePreviewUrl = signal<string | null>(null);
   readonly fileError = signal<string | null>(null);
@@ -148,6 +163,7 @@ export class WholesaleCatalogComponent implements OnInit, OnDestroy {
   readonly checkoutForm = this.fb.group({
     modalidad_entrega: ['Recojo en el local' as ModalidadEntrega, [Validators.required]],
     direccion_destino: [''],
+    celular_contacto: [''],
     metodo_pago: ['QR' as MetodoPago, [Validators.required]],
   });
 
@@ -173,17 +189,31 @@ export class WholesaleCatalogComponent implements OnInit, OnDestroy {
       .pipe(takeUntilDestroyed())
       .subscribe((modalidad) => {
         this.selectedDelivery.set(modalidad);
+        this.locationError.set(null);
+
         const dirCtrl = this.checkoutForm.controls.direccion_destino;
+        const phoneCtrl = this.checkoutForm.controls.celular_contacto;
+        const empresa = this.authService.empresaCliente();
+
         if (modalidad === 'Envío a dirección en camión') {
           dirCtrl.setValidators([trimmedRequiredValidator(), trimmedMinLengthValidator(5)]);
+          phoneCtrl.setValidators([trimmedRequiredValidator(), phoneValidator()]);
           if (!dirCtrl.value.trim()) {
-            const defaultAddr = this.authService.empresaCliente()?.direccion_entrega ?? '';
-            dirCtrl.setValue(defaultAddr, { emitEvent: false });
+            dirCtrl.setValue(empresa?.direccion ?? '', { emitEvent: false });
+          }
+          if (!phoneCtrl.value.trim()) {
+            phoneCtrl.setValue(empresa?.telefono ?? '', { emitEvent: false });
+          }
+          if (this.selectedLat() === null || this.selectedLng() === null) {
+            this.selectedLat.set(DEFAULT_BOLIVIA_LAT);
+            this.selectedLng.set(DEFAULT_BOLIVIA_LNG);
           }
         } else {
           dirCtrl.clearValidators();
+          phoneCtrl.clearValidators();
         }
         dirCtrl.updateValueAndValidity({ emitEvent: false });
+        phoneCtrl.updateValueAndValidity({ emitEvent: false });
       });
 
     this.checkoutForm.controls.metodo_pago.valueChanges
@@ -222,6 +252,12 @@ export class WholesaleCatalogComponent implements OnInit, OnDestroy {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  onLocationSelected(coords: GeoCoordinates): void {
+    this.selectedLat.set(coords.lat);
+    this.selectedLng.set(coords.lng);
+    this.locationError.set(null);
   }
 
   getDraftQuantity(idMateriaPrima: string, fallback: number): number {
@@ -372,6 +408,8 @@ export class WholesaleCatalogComponent implements OnInit, OnDestroy {
 
   requestSubmitOrder(): void {
     this.lastOrderResult.set(null);
+    this.locationError.set(null);
+
     if (this.cartItems().length === 0) {
       toast.error('Agregue al menos una materia prima al pedido.');
       return;
@@ -379,6 +417,16 @@ export class WholesaleCatalogComponent implements OnInit, OnDestroy {
 
     if (this.checkoutForm.invalid) {
       this.checkoutForm.markAllAsTouched();
+      return;
+    }
+
+    if (
+      this.selectedDelivery() === 'Envío a dirección en camión' &&
+      (this.selectedLat() === null || this.selectedLng() === null)
+    ) {
+      const msg = 'Fije las coordenadas de entrega haciendo clic o arrastrando el marcador.';
+      this.locationError.set(msg);
+      toast.error(msg);
       return;
     }
 
@@ -436,6 +484,7 @@ export class WholesaleCatalogComponent implements OnInit, OnDestroy {
     }
 
     const raw = this.checkoutForm.getRawValue();
+    const isDelivery = raw.modalidad_entrega === 'Envío a dirección en camión';
     const items: RpcPedidoItemParam[] = this.cartItems().flatMap((c) =>
       c.asignaciones.map((a) => ({
         id_lote: a.id_lote,
@@ -446,10 +495,10 @@ export class WholesaleCatalogComponent implements OnInit, OnDestroy {
     return {
       idEmpresaCliente: empresa.id_empresa_cliente,
       modalidadEntrega: raw.modalidad_entrega,
-      direccionDestino:
-        raw.modalidad_entrega === 'Envío a dirección en camión'
-          ? sanitizeText(raw.direccion_destino)
-          : null,
+      direccionDestino: isDelivery ? sanitizeText(raw.direccion_destino) : null,
+      latitud: isDelivery ? this.selectedLat() : null,
+      longitud: isDelivery ? this.selectedLng() : null,
+      celularContacto: isDelivery ? sanitizePhone(raw.celular_contacto) : null,
       items,
       archivoComprobante: raw.metodo_pago === 'QR' ? this.selectedFile() : null,
     };

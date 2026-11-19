@@ -13,7 +13,10 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideAlertTriangle,
   lucideClipboardList,
+  lucideExternalLink,
   lucideEye,
+  lucideMapPin,
+  lucidePhone,
   lucideRefreshCw,
   lucideSearch,
   lucideShoppingCart,
@@ -40,6 +43,7 @@ import {
 } from '../../../../core/models/domain.models';
 import { AuthService } from '../../../../core/services/auth.service';
 import { translateSupabaseError } from '../../../../core/utils/supabase-error.util';
+import { LocationPickerMapComponent } from '../../../../shared/components/location-picker-map/location-picker-map.component';
 import { StatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge.component';
 import { TablePaginationComponent } from '../../../../shared/components/table-pagination/table-pagination.component';
 import { sanitizeText } from '../../../../shared/utils/sanitizers.util';
@@ -67,6 +71,7 @@ import { OrdersService } from '../../services/orders.service';
     HlmTableImports,
     StatusBadgeComponent,
     TablePaginationComponent,
+    LocationPickerMapComponent,
   ],
   providers: [
     provideIcons({
@@ -77,6 +82,9 @@ import { OrdersService } from '../../services/orders.service';
       lucideEye,
       lucideUpload,
       lucideAlertTriangle,
+      lucideMapPin,
+      lucidePhone,
+      lucideExternalLink,
     }),
   ],
   templateUrl: './my-orders.component.html',
@@ -119,6 +127,7 @@ export class MyOrdersComponent implements OnInit, OnDestroy {
       return (
         String(order.numero_pedido).includes(q) ||
         order.modalidad_entrega.toLowerCase().includes(q) ||
+        (order.celular_contacto?.toLowerCase().includes(q) ?? false) ||
         (pago?.metodo.toLowerCase().includes(q) ?? false) ||
         (pago?.estado.toLowerCase().includes(q) ?? false)
       );
@@ -146,15 +155,37 @@ export class MyOrdersComponent implements OnInit, OnDestroy {
     return unwrapOne(order.pago);
   }
 
-  getItemMaterialName(mp: Pick<MateriaPrima, 'codigo' | 'nombre' | 'unidad_medida'> | Pick<MateriaPrima, 'codigo' | 'nombre' | 'unidad_medida'>[] | null | undefined): string {
+  getOsmUrl(lat: number, lng: number): string {
+    return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`;
+  }
+
+  getItemMaterialName(
+    mp:
+      | Pick<MateriaPrima, 'codigo' | 'nombre' | 'unidad_medida'>
+      | Pick<MateriaPrima, 'codigo' | 'nombre' | 'unidad_medida'>[]
+      | null
+      | undefined,
+  ): string {
     return unwrapOne(mp)?.nombre ?? '—';
   }
 
-  getItemUnit(mp: Pick<MateriaPrima, 'codigo' | 'nombre' | 'unidad_medida'> | Pick<MateriaPrima, 'codigo' | 'nombre' | 'unidad_medida'>[] | null | undefined): string {
+  getItemUnit(
+    mp:
+      | Pick<MateriaPrima, 'codigo' | 'nombre' | 'unidad_medida'>
+      | Pick<MateriaPrima, 'codigo' | 'nombre' | 'unidad_medida'>[]
+      | null
+      | undefined,
+  ): string {
     return unwrapOne(mp)?.unidad_medida ?? '';
   }
 
-  getItemLotCode(lote: Pick<Lote, 'id_lote' | 'codigo_unico'> | Pick<Lote, 'id_lote' | 'codigo_unico'>[] | null | undefined): string {
+  getItemLotCode(
+    lote:
+      | Pick<Lote, 'id_lote' | 'codigo_unico'>
+      | Pick<Lote, 'id_lote' | 'codigo_unico'>[]
+      | null
+      | undefined,
+  ): string {
     return unwrapOne(lote)?.codigo_unico ?? '—';
   }
 

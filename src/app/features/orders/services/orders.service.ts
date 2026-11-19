@@ -33,7 +33,7 @@ const SELECT_LOTES_DISPONIBLES =
   'id_lote, codigo_unico, id_materia_prima, cantidad_disponible, fecha_vencimiento, estado, materia_prima(id_materia_prima, codigo, nombre, unidad_medida, precio_mayorista, cantidad_minima_venta, parametros_calidad_exigidos, stock_disponible_total)';
 
 const SELECT_MIS_PEDIDOS =
-  'numero_pedido, id_empresa_cliente, modalidad_entrega, direccion_destino, subtotal_mayorista, estado_pedido, estado_entrega, fecha_creacion, detalle_pedido(id_detalle, numero_pedido, id_materia_prima, id_lote, cantidad_solicitada, precio_unitario_mayorista, subtotal, materia_prima(id_materia_prima, codigo, nombre, unidad_medida), lote(id_lote, codigo_unico)), pago(id_pago, numero_pedido, metodo, monto, url_comprobante_qr, estado, motivo_observacion, fecha_registro, fecha_verificacion)';
+  'numero_pedido, id_empresa_cliente, modalidad_entrega, direccion_destino, latitud, longitud, celular_contacto, subtotal_mayorista, estado_pedido, estado_entrega, fecha_creacion, detalle_pedido(id_detalle, numero_pedido, id_materia_prima, id_lote, cantidad_solicitada, precio_unitario_mayorista, subtotal, materia_prima(id_materia_prima, codigo, nombre, unidad_medida), lote(id_lote, codigo_unico)), pago(id_pago, numero_pedido, metodo, monto, url_comprobante_qr, estado, motivo_observacion, fecha_registro, fecha_verificacion)';
 
 @Injectable({
   providedIn: 'root',

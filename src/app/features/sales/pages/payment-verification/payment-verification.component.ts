@@ -1,4 +1,4 @@
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -8,7 +8,8 @@ import {
   lucideCheck,
   lucideExternalLink,
   lucideEye,
-  lucideFileBarChart2,
+  lucideMapPin,
+  lucidePhone,
   lucideRefreshCw,
   lucideSearch,
   lucideX,
@@ -28,17 +29,14 @@ import { HlmTabsImports } from '@spartan-ng/helm/tabs';
 import { HlmTextareaImports } from '@spartan-ng/helm/textarea';
 import {
   ESTADOS_PAGO,
-  ESTADOS_PEDIDO,
   EmpresaCliente,
   Pago,
   PedidoConEmpresa,
-  ReporteVentasPagosRow,
   unwrapOne,
 } from '../../../../core/models/domain.models';
 import { translateSupabaseError } from '../../../../core/utils/supabase-error.util';
 import { ConfirmDialogComponent } from '../../../../shared/components/confirm-dialog/confirm-dialog.component';
-import { DynamicReportDrawerComponent } from '../../../../shared/components/dynamic-report/dynamic-report-drawer.component';
-import { DynamicReportConfig } from '../../../../shared/components/dynamic-report/dynamic-report.models';
+import { LocationPickerMapComponent } from '../../../../shared/components/location-picker-map/location-picker-map.component';
 import { StatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge.component';
 import { TablePaginationComponent } from '../../../../shared/components/table-pagination/table-pagination.component';
 import { sanitizeMultilineText, sanitizeText } from '../../../../shared/utils/sanitizers.util';
@@ -54,6 +52,7 @@ import { SalesService } from '../../services/sales.service';
   imports: [
     CurrencyPipe,
     DatePipe,
+    DecimalPipe,
     ReactiveFormsModule,
     NgIcon,
     HlmAlertImports,
@@ -71,18 +70,19 @@ import { SalesService } from '../../services/sales.service';
     ConfirmDialogComponent,
     StatusBadgeComponent,
     TablePaginationComponent,
-    DynamicReportDrawerComponent,
+    LocationPickerMapComponent,
   ],
   providers: [
     provideIcons({
       lucideBadgeCheck,
-      lucideFileBarChart2,
       lucideSearch,
       lucideRefreshCw,
       lucideEye,
       lucideCheck,
       lucideX,
       lucideExternalLink,
+      lucideMapPin,
+      lucidePhone,
     }),
   ],
   templateUrl: './payment-verification.component.html',
@@ -110,10 +110,6 @@ export class PaymentVerificationComponent implements OnInit {
   readonly rejectTarget = signal<Pago | null>(null);
   readonly rejectConfirmOpen = signal<boolean>(false);
   readonly processingVerification = signal<boolean>(false);
-
-  readonly reportOpen = signal<boolean>(false);
-  readonly reportLoading = signal<boolean>(false);
-  readonly reportRows = signal<ReporteVentasPagosRow[]>([]);
 
   readonly rejectForm = this.fb.group({
     motivo_observacion: ['', [trimmedRequiredValidator(), trimmedMinLengthValidator(8)]],
@@ -150,10 +146,12 @@ export class PaymentVerificationComponent implements OnInit {
         return true;
       }
       const empresa = this.getEmpresa(pago);
+      const pedido = this.getPedido(pago);
       return (
         String(pago.numero_pedido).includes(q) ||
         (empresa?.razon_social.toLowerCase().includes(q) ?? false) ||
         (empresa?.nit.toLowerCase().includes(q) ?? false) ||
+        (pedido?.celular_contacto?.toLowerCase().includes(q) ?? false) ||
         pago.metodo.toLowerCase().includes(q)
       );
     });
@@ -176,116 +174,6 @@ export class PaymentVerificationComponent implements OnInit {
     return this.sanitizer.bypassSecurityTrustResourceUrl(url);
   });
 
-  readonly reportConfig: DynamicReportConfig<ReporteVentasPagosRow> = {
-    title: 'Reporte de Ventas y Verificación de Pagos',
-    subtitle: 'Consolidado comercial de pedidos mayoristas, cobros QR/Efectivo y estados de caja.',
-    filenamePrefix: 'reporte-ventas-pagos',
-    searchFields: [
-      (r) => String(r.numero_pedido),
-      (r) => r.empresa_cliente,
-      (r) => r.nit_cliente,
-      (r) => r.metodo_pago,
-    ],
-    columns: [
-      {
-        key: 'numero_pedido',
-        label: 'N° Pedido',
-        getValue: (r) => r.numero_pedido,
-        format: (r) => `#${r.numero_pedido}`,
-      },
-      { key: 'empresa_cliente', label: 'Empresa Cliente', getValue: (r) => r.empresa_cliente },
-      { key: 'nit_cliente', label: 'NIT', getValue: (r) => r.nit_cliente },
-      { key: 'metodo_pago', label: 'Método Pago', getValue: (r) => r.metodo_pago },
-      {
-        key: 'subtotal_mayorista',
-        label: 'Monto Total',
-        align: 'right',
-        getValue: (r) => Number(r.subtotal_mayorista),
-        format: (r) => `Bs ${Number(r.subtotal_mayorista).toFixed(2)}`,
-      },
-      { key: 'estado_pago', label: 'Estado Pago', getValue: (r) => r.estado_pago },
-      { key: 'estado_pedido', label: 'Estado Pedido', getValue: (r) => r.estado_pedido },
-      { key: 'modalidad_entrega', label: 'Modalidad Entrega', getValue: (r) => r.modalidad_entrega },
-      {
-        key: 'estado_entrega',
-        label: 'Estado Entrega',
-        defaultVisible: false,
-        getValue: (r) => r.estado_entrega,
-      },
-      {
-        key: 'direccion_destino',
-        label: 'Dirección Destino',
-        defaultVisible: false,
-        getValue: (r) => r.direccion_destino,
-      },
-      { key: 'fecha_creacion', label: 'Fecha Pedido', getValue: (r) => r.fecha_creacion },
-      {
-        key: 'fecha_verificacion',
-        label: 'Fecha Verificación',
-        getValue: (r) => r.fecha_verificacion,
-      },
-      {
-        key: 'motivo_observacion',
-        label: 'Motivo Observación',
-        defaultVisible: false,
-        getValue: (r) => r.motivo_observacion,
-      },
-    ],
-    filters: [
-      {
-        key: 'metodo_pago',
-        label: 'Método de pago',
-        type: 'select',
-        options: [
-          { label: 'QR', value: 'QR' },
-          { label: 'Efectivo', value: 'Efectivo' },
-        ],
-        accessor: (r) => r.metodo_pago,
-      },
-      {
-        key: 'estado_pago',
-        label: 'Estado de pago',
-        type: 'select',
-        options: ESTADOS_PAGO.map((e) => ({ label: e, value: e })),
-        accessor: (r) => r.estado_pago,
-      },
-      {
-        key: 'estado_pedido',
-        label: 'Estado de pedido',
-        type: 'select',
-        options: ESTADOS_PEDIDO.map((e) => ({ label: e, value: e })),
-        accessor: (r) => r.estado_pedido,
-      },
-      {
-        key: 'fecha_creacion',
-        label: 'Fecha de creación',
-        type: 'date-range',
-        accessor: (r) => r.fecha_creacion,
-      },
-      {
-        key: 'fecha_verificacion',
-        label: 'Fecha de verificación',
-        type: 'date-range',
-        accessor: (r) => r.fecha_verificacion,
-      },
-    ],
-    summaryCards: [
-      {
-        label: 'Pagos aprobados',
-        compute: (rows) => String(rows.filter((r) => r.estado_pago === 'Aprobado').length),
-      },
-      {
-        label: 'Monto recaudado (aprobado)',
-        compute: (rows) =>
-          'Bs ' +
-          rows
-            .filter((r) => r.estado_pago === 'Aprobado')
-            .reduce((acc, r) => acc + Number(r.subtotal_mayorista || 0), 0)
-            .toFixed(2),
-      },
-    ],
-  };
-
   ngOnInit(): void {
     void this.loadPayments();
   }
@@ -294,8 +182,14 @@ export class PaymentVerificationComponent implements OnInit {
     return unwrapOne(pago.pedido);
   }
 
-  getEmpresa(pago: Pago): Pick<EmpresaCliente, 'id_empresa_cliente' | 'nit' | 'razon_social' | 'telefono'> | null {
+  getEmpresa(
+    pago: Pago,
+  ): Pick<EmpresaCliente, 'id_empresa_cliente' | 'nit' | 'razon_social' | 'telefono'> | null {
     return unwrapOne(this.getPedido(pago)?.empresa_cliente);
+  }
+
+  getOsmUrl(lat: number, lng: number): string {
+    return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`;
   }
 
   canApprove(pago: Pago): boolean {
@@ -325,19 +219,6 @@ export class PaymentVerificationComponent implements OnInit {
       toast.error(msg);
     } finally {
       this.loading.set(false);
-    }
-  }
-
-  async openReportDrawer(): Promise<void> {
-    this.reportOpen.set(true);
-    this.reportLoading.set(true);
-    try {
-      const rows = await this.salesService.getReportSalesPayments();
-      this.reportRows.set(rows);
-    } catch (err) {
-      toast.error(translateSupabaseError(err, 'No se pudo cargar los datos del reporte de ventas.'));
-    } finally {
-      this.reportLoading.set(false);
     }
   }
 

@@ -3,12 +3,12 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } 
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
-  lucideFileBarChart2,
   lucidePackage,
   lucidePencil,
   lucidePlus,
   lucideRefreshCw,
   lucideSearch,
+  lucideTrash2,
 } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
 import { HlmAlertImports } from '@spartan-ng/helm/alert';
@@ -21,23 +21,23 @@ import { HlmInputImports } from '@spartan-ng/helm/input';
 import { HlmNativeSelectImports } from '@spartan-ng/helm/native-select';
 import { HlmSkeletonImports } from '@spartan-ng/helm/skeleton';
 import { HlmSpinnerImports } from '@spartan-ng/helm/spinner';
+import { HlmSwitchImports } from '@spartan-ng/helm/switch';
 import { HlmTableImports } from '@spartan-ng/helm/table';
-import { HlmTextareaImports } from '@spartan-ng/helm/textarea';
-import { MateriaPrima } from '../../../../core/models/domain.models';
-import { translateSupabaseError } from '../../../../core/utils/supabase-error.util';
-import { DynamicReportDrawerComponent } from '../../../../shared/components/dynamic-report/dynamic-report-drawer.component';
-import { DynamicReportConfig } from '../../../../shared/components/dynamic-report/dynamic-report.models';
-import { TablePaginationComponent } from '../../../../shared/components/table-pagination/table-pagination.component';
 import {
-  sanitizeCode,
-  sanitizeMultilineText,
-  sanitizeText,
-} from '../../../../shared/utils/sanitizers.util';
+  MateriaPrima,
+  ParametroCalidad,
+  STANDARD_QUALITY_PARAMETERS,
+  UNIDADES_MEDIDA_INDUSTRIALES,
+  formatActiveQualityParameters,
+  normalizeQualityParameters,
+} from '../../../../core/models/domain.models';
+import { translateSupabaseError } from '../../../../core/utils/supabase-error.util';
+import { TablePaginationComponent } from '../../../../shared/components/table-pagination/table-pagination.component';
+import { sanitizeText } from '../../../../shared/utils/sanitizers.util';
 import {
   positiveDecimalValidator,
   trimmedMinLengthValidator,
   trimmedRequiredValidator,
-  uniqueCodeFormatValidator,
 } from '../../../../shared/utils/validators.util';
 import { MateriaPrimaPayload, RawMaterialsService } from '../../services/raw-materials.service';
 
@@ -59,10 +59,9 @@ import { MateriaPrimaPayload, RawMaterialsService } from '../../services/raw-mat
     HlmNativeSelectImports,
     HlmSkeletonImports,
     HlmSpinnerImports,
+    HlmSwitchImports,
     HlmTableImports,
-    HlmTextareaImports,
     TablePaginationComponent,
-    DynamicReportDrawerComponent,
   ],
   providers: [
     provideIcons({
@@ -70,8 +69,8 @@ import { MateriaPrimaPayload, RawMaterialsService } from '../../services/raw-mat
       lucidePlus,
       lucidePencil,
       lucideSearch,
-      lucideFileBarChart2,
       lucideRefreshCw,
+      lucideTrash2,
     }),
   ],
   templateUrl: './raw-materials.component.html',
@@ -79,6 +78,8 @@ import { MateriaPrimaPayload, RawMaterialsService } from '../../services/raw-mat
 export class RawMaterialsComponent implements OnInit {
   private readonly service = inject(RawMaterialsService);
   private readonly fb = inject(NonNullableFormBuilder);
+
+  private readonly standardKeys = new Set(STANDARD_QUALITY_PARAMETERS.map((p) => p.key));
 
   readonly items = signal<MateriaPrima[]>([]);
   readonly loading = signal<boolean>(true);
@@ -92,16 +93,29 @@ export class RawMaterialsComponent implements OnInit {
 
   readonly dialogOpen = signal<boolean>(false);
   readonly editingItem = signal<MateriaPrima | null>(null);
-  readonly reportOpen = signal<boolean>(false);
+  readonly qualityParams = signal<ParametroCalidad[]>([]);
+  readonly customParamLabel = signal<string>('');
+  readonly qualityParamsError = signal<string | null>(null);
 
   readonly form = this.fb.group({
-    codigo: ['', [trimmedRequiredValidator(), uniqueCodeFormatValidator()]],
     nombre: ['', [trimmedRequiredValidator(), trimmedMinLengthValidator(2)]],
-    unidad_medida: ['', [trimmedRequiredValidator()]],
+    unidad_medida: ['Kilogramo (kg)', [trimmedRequiredValidator()]],
     precio_mayorista: [0, [Validators.required, positiveDecimalValidator(false)]],
     cantidad_minima_venta: [1, [Validators.required, positiveDecimalValidator(false)]],
-    parametros_calidad_exigidos: ['', [trimmedRequiredValidator(), trimmedMinLengthValidator(5)]],
   });
+
+  readonly unitOptions = computed<string[]>(() => {
+    const base: string[] = [...UNIDADES_MEDIDA_INDUSTRIALES];
+    const currentUnit = this.editingItem()?.unidad_medida?.trim();
+    if (currentUnit && !base.includes(currentUnit)) {
+      return [currentUnit, ...base];
+    }
+    return base;
+  });
+
+  readonly activeParamsCount = computed(
+    () => this.qualityParams().filter((p) => p.requerido).length,
+  );
 
   readonly filteredItems = computed(() => {
     const q = sanitizeText(this.searchTerm()).toLowerCase();
@@ -133,80 +147,6 @@ export class RawMaterialsComponent implements OnInit {
     return list.slice(start, start + size);
   });
 
-  readonly reportConfig = computed<DynamicReportConfig<MateriaPrima>>(() => {
-    const distinctUnits = Array.from(
-      new Set(this.items().map((i) => i.unidad_medida).filter(Boolean)),
-    ).sort();
-
-    return {
-      title: 'Reporte de Catálogo de Materias Primas',
-      subtitle: 'Inventario maestro, precios mayoristas, mínimos de venta y estándares de calidad.',
-      filenamePrefix: 'catalogo-materias-primas',
-      searchFields: [(r) => r.codigo, (r) => r.nombre, (r) => r.unidad_medida],
-      columns: [
-        { key: 'codigo', label: 'Código', getValue: (r) => r.codigo },
-        { key: 'nombre', label: 'Materia Prima', getValue: (r) => r.nombre },
-        { key: 'unidad_medida', label: 'Unidad', getValue: (r) => r.unidad_medida },
-        {
-          key: 'precio_mayorista',
-          label: 'Precio Mayorista',
-          align: 'right',
-          getValue: (r) => Number(r.precio_mayorista),
-          format: (r) => `Bs ${Number(r.precio_mayorista).toFixed(2)}`,
-        },
-        {
-          key: 'cantidad_minima_venta',
-          label: 'Mín. Venta',
-          align: 'right',
-          getValue: (r) => Number(r.cantidad_minima_venta),
-          format: (r) => `${Number(r.cantidad_minima_venta).toFixed(2)} ${r.unidad_medida}`,
-        },
-        {
-          key: 'stock_disponible_total',
-          label: 'Stock Disponible',
-          align: 'right',
-          getValue: (r) => Number(r.stock_disponible_total),
-          format: (r) => `${Number(r.stock_disponible_total).toFixed(2)} ${r.unidad_medida}`,
-        },
-        {
-          key: 'parametros_calidad_exigidos',
-          label: 'Parámetros de Calidad',
-          defaultVisible: false,
-          getValue: (r) => r.parametros_calidad_exigidos,
-        },
-      ],
-      filters: [
-        {
-          key: 'stock',
-          label: 'Disponibilidad de stock',
-          type: 'boolean',
-          trueLabel: 'Con stock disponible',
-          falseLabel: 'Sin stock (0)',
-          accessor: (r) => Number(r.stock_disponible_total) > 0,
-        },
-        {
-          key: 'unidad_medida',
-          label: 'Unidad de medida',
-          type: 'select',
-          options: distinctUnits.map((u) => ({ label: u, value: u })),
-          accessor: (r) => r.unidad_medida,
-        },
-      ],
-      summaryCards: [
-        {
-          label: 'Con stock disponible',
-          compute: (rows) =>
-            String(rows.filter((r) => Number(r.stock_disponible_total) > 0).length),
-        },
-        {
-          label: 'Stock total acumulado',
-          compute: (rows) =>
-            rows.reduce((acc, r) => acc + Number(r.stock_disponible_total || 0), 0).toFixed(2),
-        },
-      ],
-    };
-  });
-
   ngOnInit(): void {
     void this.loadItems();
   }
@@ -226,28 +166,43 @@ export class RawMaterialsComponent implements OnInit {
     }
   }
 
+  getActiveQualityCount(item: MateriaPrima): number {
+    return normalizeQualityParameters(item.parametros_calidad_exigidos).filter((p) => p.requerido)
+      .length;
+  }
+
+  getActiveQualitySummary(item: MateriaPrima): string {
+    return formatActiveQualityParameters(item.parametros_calidad_exigidos);
+  }
+
+  isStandardParam(key: string): boolean {
+    return this.standardKeys.has(key);
+  }
+
   openCreateDialog(): void {
     this.editingItem.set(null);
+    this.customParamLabel.set('');
+    this.qualityParamsError.set(null);
+    this.qualityParams.set(STANDARD_QUALITY_PARAMETERS.map((p) => ({ ...p })));
     this.form.reset({
-      codigo: '',
       nombre: '',
-      unidad_medida: 'kg',
+      unidad_medida: 'Kilogramo (kg)',
       precio_mayorista: 0,
       cantidad_minima_venta: 1,
-      parametros_calidad_exigidos: '',
     });
     this.dialogOpen.set(true);
   }
 
   openEditDialog(item: MateriaPrima): void {
     this.editingItem.set(item);
+    this.customParamLabel.set('');
+    this.qualityParamsError.set(null);
+    this.qualityParams.set(this.mergeQualityParameters(item.parametros_calidad_exigidos));
     this.form.reset({
-      codigo: item.codigo,
       nombre: item.nombre,
-      unidad_medida: item.unidad_medida,
+      unidad_medida: item.unidad_medida || 'Kilogramo (kg)',
       precio_mayorista: Number(item.precio_mayorista),
       cantidad_minima_venta: Number(item.cantidad_minima_venta),
-      parametros_calidad_exigidos: item.parametros_calidad_exigidos,
     });
     this.dialogOpen.set(true);
   }
@@ -258,20 +213,68 @@ export class RawMaterialsComponent implements OnInit {
     }
   }
 
+  toggleQualityParam(key: string, requerido: boolean): void {
+    this.qualityParamsError.set(null);
+    this.qualityParams.update((list) =>
+      list.map((param) => (param.key === key ? { ...param, requerido } : param)),
+    );
+  }
+
+  addCustomParam(): void {
+    const label = sanitizeText(this.customParamLabel());
+    if (label.length < 3) {
+      toast.warning('Ingrese al menos 3 caracteres para el parámetro personalizado.');
+      return;
+    }
+
+    const baseKey = label
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    const keyBase = baseKey || 'parametro_personalizado';
+    const existingKeys = new Set(this.qualityParams().map((p) => p.key));
+
+    let uniqueKey = keyBase;
+    let suffix = 2;
+    while (existingKeys.has(uniqueKey)) {
+      uniqueKey = `${keyBase}_${suffix++}`;
+    }
+
+    this.qualityParams.update((list) => [...list, { key: uniqueKey, label, requerido: true }]);
+    this.customParamLabel.set('');
+    this.qualityParamsError.set(null);
+  }
+
+  removeCustomParam(key: string): void {
+    if (this.standardKeys.has(key)) {
+      return;
+    }
+    this.qualityParams.update((list) => list.filter((p) => p.key !== key));
+  }
+
   async onSubmit(): Promise<void> {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
 
+    const currentParams = this.qualityParams();
+    if (!currentParams.some((p) => p.requerido)) {
+      this.qualityParamsError.set(
+        'Active al menos un parámetro de calidad requerido para Control de Calidad.',
+      );
+      return;
+    }
+
     const raw = this.form.getRawValue();
     const payload: MateriaPrimaPayload = {
-      codigo: sanitizeCode(raw.codigo),
       nombre: sanitizeText(raw.nombre),
       unidad_medida: sanitizeText(raw.unidad_medida),
       precio_mayorista: Number(raw.precio_mayorista),
       cantidad_minima_venta: Number(raw.cantidad_minima_venta),
-      parametros_calidad_exigidos: sanitizeMultilineText(raw.parametros_calidad_exigidos),
+      parametros_calidad_exigidos: currentParams,
     };
 
     this.saving.set(true);
@@ -288,7 +291,7 @@ export class RawMaterialsComponent implements OnInit {
         this.items.update((list) =>
           [...list, created].sort((a, b) => a.nombre.localeCompare(b.nombre)),
         );
-        toast.success(`Materia prima "${created.nombre}" registrada.`);
+        toast.success(`Materia prima "${created.nombre}" registrada (${created.codigo}).`);
       }
       this.dialogOpen.set(false);
     } catch (err) {
@@ -307,5 +310,27 @@ export class RawMaterialsComponent implements OnInit {
     const v = value === 'with-stock' || value === 'no-stock' ? value : 'all';
     this.stockFilter.set(v);
     this.page.set(1);
+  }
+
+  private mergeQualityParameters(existingRaw: unknown): ParametroCalidad[] {
+    const existing = normalizeQualityParameters(existingRaw);
+    const byKey = new Map(existing.map((p) => [p.key, p]));
+
+    const merged: ParametroCalidad[] = STANDARD_QUALITY_PARAMETERS.map((std) => {
+      const saved = byKey.get(std.key);
+      return {
+        key: std.key,
+        label: std.label,
+        requerido: saved ? saved.requerido : false,
+      };
+    });
+
+    for (const custom of existing) {
+      if (!this.standardKeys.has(custom.key)) {
+        merged.push({ ...custom });
+      }
+    }
+
+    return merged;
   }
 }

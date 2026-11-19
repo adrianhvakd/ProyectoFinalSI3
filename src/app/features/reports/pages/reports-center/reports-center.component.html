@@ -1,0 +1,84 @@
+<div class="flex flex-col gap-6">
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold text-foreground tracking-tight flex items-center gap-2">
+        <ng-icon name="lucideFileBarChart2" class="text-primary" />
+        <span>Centro de Reportes</span>
+      </h1>
+      <p class="text-sm text-muted-foreground">
+        Configure columnas visibles y filtros acoplados para exportar vistas en Excel (.xlsx), CSV
+        UTF-8 y PDF institucional.
+      </p>
+    </div>
+  </div>
+
+  @if (availableTabs().length > 1) {
+    <hlm-tabs [tab]="effectiveTab()" (tabActivated)="onTabActivated($event)">
+      <hlm-tabs-list class="flex-wrap h-auto">
+        @for (tab of availableTabs(); track tab.key) {
+          <button type="button" hlmTabsTrigger="{{ tab.key }}">
+            {{ tab.label }}
+          </button>
+        }
+      </hlm-tabs-list>
+    </hlm-tabs>
+  }
+
+  @if (error()) {
+    <div hlmAlert variant="destructive">
+      <h2 hlmAlertTitle>Error cargando reporte</h2>
+      <p hlmAlertDescription>{{ error() }}</p>
+    </div>
+  }
+
+  @switch (effectiveTab()) {
+    @case ('materials') {
+      <app-dynamic-report-builder
+        [config]="materialsConfig()"
+        [data]="materialsData()"
+        [loading]="loadingTab()"
+        (refreshRequested)="loadTab('materials', true)"
+      />
+    }
+    @case ('providers') {
+      <app-dynamic-report-builder
+        [config]="providersConfig()"
+        [data]="providersData()"
+        [loading]="loadingTab()"
+        (refreshRequested)="loadTab('providers', true)"
+      />
+    }
+    @case ('users') {
+      <app-dynamic-report-builder
+        [config]="usersConfig"
+        [data]="usersData()"
+        [loading]="loadingTab()"
+        (refreshRequested)="loadTab('users', true)"
+      />
+    }
+    @case ('clients') {
+      <app-dynamic-report-builder
+        [config]="clientsConfig"
+        [data]="clientsData()"
+        [loading]="loadingTab()"
+        (refreshRequested)="loadTab('clients', true)"
+      />
+    }
+    @case ('lots') {
+      <app-dynamic-report-builder
+        [config]="lotsConfig()"
+        [data]="lotsData()"
+        [loading]="loadingTab()"
+        (refreshRequested)="loadTab('lots', true)"
+      />
+    }
+    @case ('sales') {
+      <app-dynamic-report-builder
+        [config]="salesConfig"
+        [data]="salesData()"
+        [loading]="loadingTab()"
+        (refreshRequested)="loadTab('sales', true)"
+      />
+    }
+  }
+</div>

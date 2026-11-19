@@ -1,15 +1,18 @@
 import { Injectable, inject } from '@angular/core';
-import { MateriaPrima } from '../../../core/models/domain.models';
+import {
+  MateriaPrima,
+  ParametroCalidad,
+  normalizeQualityParameters,
+} from '../../../core/models/domain.models';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { translateSupabaseError } from '../../../core/utils/supabase-error.util';
 
 export interface MateriaPrimaPayload {
-  codigo: string;
   nombre: string;
   unidad_medida: string;
   precio_mayorista: number;
   cantidad_minima_venta: number;
-  parametros_calidad_exigidos: string;
+  parametros_calidad_exigidos: ParametroCalidad[];
 }
 
 const SELECT_MATERIA_PRIMA =
@@ -31,32 +34,10 @@ export class RawMaterialsService {
       throw new Error(translateSupabaseError(error, 'No se pudo cargar el catálogo de materias primas.'));
     }
 
-    return (data ?? []) as MateriaPrima[];
-  }
-
-  async checkCodeExists(codigo: string, excludeId?: string): Promise<boolean> {
-    let query = this.supabase.client
-      .from('materia_prima')
-      .select('id_materia_prima')
-      .ilike('codigo', codigo);
-
-    if (excludeId) {
-      query = query.neq('id_materia_prima', excludeId);
-    }
-
-    const { data, error } = await query.limit(1);
-    if (error) {
-      return false;
-    }
-    return (data?.length ?? 0) > 0;
+    return (data ?? []).map((row) => this.normalizeRow(row));
   }
 
   async create(payload: MateriaPrimaPayload): Promise<MateriaPrima> {
-    const exists = await this.checkCodeExists(payload.codigo);
-    if (exists) {
-      throw new Error(`El código "${payload.codigo}" ya está registrado en otra materia prima.`);
-    }
-
     const { data, error } = await this.supabase.client
       .from('materia_prima')
       .insert(payload)
@@ -67,15 +48,10 @@ export class RawMaterialsService {
       throw new Error(translateSupabaseError(error, 'No se pudo registrar la materia prima.'));
     }
 
-    return data as MateriaPrima;
+    return this.normalizeRow(data);
   }
 
   async update(idMateriaPrima: string, payload: MateriaPrimaPayload): Promise<MateriaPrima> {
-    const exists = await this.checkCodeExists(payload.codigo, idMateriaPrima);
-    if (exists) {
-      throw new Error(`El código "${payload.codigo}" ya está registrado en otra materia prima.`);
-    }
-
     const { data, error } = await this.supabase.client
       .from('materia_prima')
       .update(payload)
@@ -87,6 +63,20 @@ export class RawMaterialsService {
       throw new Error(translateSupabaseError(error, 'No se pudo actualizar la materia prima.'));
     }
 
-    return data as MateriaPrima;
+    return this.normalizeRow(data);
+  }
+
+  private normalizeRow(row: unknown): MateriaPrima {
+    const raw = row as Record<string, unknown>;
+    return {
+      id_materia_prima: String(raw['id_materia_prima'] ?? ''),
+      codigo: String(raw['codigo'] ?? ''),
+      nombre: String(raw['nombre'] ?? ''),
+      unidad_medida: String(raw['unidad_medida'] ?? ''),
+      precio_mayorista: Number(raw['precio_mayorista'] ?? 0),
+      cantidad_minima_venta: Number(raw['cantidad_minima_venta'] ?? 0),
+      parametros_calidad_exigidos: normalizeQualityParameters(raw['parametros_calidad_exigidos']),
+      stock_disponible_total: Number(raw['stock_disponible_total'] ?? 0),
+    };
   }
 }

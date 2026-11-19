@@ -9,6 +9,9 @@ export interface SolicitudPedidoPago {
   idEmpresaCliente: string;
   modalidadEntrega: ModalidadEntrega;
   direccionDestino: string | null;
+  latitud: number | null;
+  longitud: number | null;
+  celularContacto: string | null;
   items: RpcPedidoItemParam[];
   archivoComprobante?: File | null;
 }

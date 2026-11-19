@@ -10,7 +10,7 @@ export interface CreateClientCompanyPayload {
   nit: string;
   razon_social: string;
   telefono: string;
-  direccion_entrega: string;
+  direccion: string;
 }
 
 export interface UpdateClientCompanyPayload {
@@ -18,11 +18,11 @@ export interface UpdateClientCompanyPayload {
   nit: string;
   razon_social: string;
   telefono: string;
-  direccion_entrega: string;
+  direccion: string;
 }
 
 const SELECT_CLIENT_COMPANIES =
-  'id_empresa_cliente, id_usuario, nit, razon_social, telefono, direccion_entrega, usuario(id_usuario, email, nombre_completo, rol, activo)';
+  'id_empresa_cliente, id_usuario, nit, razon_social, telefono, direccion, usuario(id_usuario, email, nombre_completo, rol, activo)';
 
 @Injectable({
   providedIn: 'root',
@@ -58,7 +58,7 @@ export class ClientCompaniesService {
           nit: payload.nit,
           razon_social: payload.razon_social,
           telefono: payload.telefono,
-          direccion_entrega: payload.direccion_entrega,
+          direccion: payload.direccion,
         },
       },
     });
@@ -85,7 +85,7 @@ export class ClientCompaniesService {
         nit: payload.nit,
         razon_social: payload.razon_social,
         telefono: payload.telefono,
-        direccion_entrega: payload.direccion_entrega,
+        direccion: payload.direccion,
       })
       .eq('id_empresa_cliente', idEmpresaCliente);
 

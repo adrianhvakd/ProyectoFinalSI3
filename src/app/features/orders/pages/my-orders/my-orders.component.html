@@ -116,6 +116,11 @@
                         {{ order.direccion_destino }}
                       </span>
                     }
+                    @if (order.celular_contacto) {
+                      <span class="text-xs text-muted-foreground tabular-nums">
+                        Cel: {{ order.celular_contacto }}
+                      </span>
+                    }
                   </div>
                 </td>
                 <td hlmTd class="text-end font-semibold tabular-nums">
@@ -233,6 +238,58 @@
             </span>
           </div>
         </div>
+
+        @if (order.modalidad_entrega === 'Envío a dirección en camión') {
+          <div class="rounded-lg border border-border bg-card p-3.5 flex flex-col gap-3 text-xs">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <span class="text-muted-foreground flex items-center gap-1">
+                  <ng-icon name="lucideMapPin" class="text-primary" />
+                  Dirección de entrega
+                </span>
+                <p class="font-medium text-foreground mt-0.5">
+                  {{ order.direccion_destino || '—' }}
+                </p>
+              </div>
+              <div>
+                <span class="text-muted-foreground flex items-center gap-1">
+                  <ng-icon name="lucidePhone" class="text-primary" />
+                  Celular de contacto
+                </span>
+                <p class="font-medium text-foreground tabular-nums mt-0.5">
+                  {{ order.celular_contacto || '—' }}
+                </p>
+              </div>
+            </div>
+
+            @if (order.latitud !== null && order.longitud !== null) {
+              <div class="flex flex-col gap-2">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <span class="font-mono text-[11px] text-muted-foreground tabular-nums">
+                    GPS: {{ order.latitud | number: '1.5-5' }}, {{ order.longitud | number: '1.5-5' }}
+                  </span>
+                  <a
+                    hlmBtn
+                    variant="link"
+                    size="xs"
+                    [href]="getOsmUrl(order.latitud, order.longitud)"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ng-icon name="lucideExternalLink" />
+                    <span>Abrir en OpenStreetMap</span>
+                  </a>
+                </div>
+                <app-location-picker-map
+                  [lat]="order.latitud"
+                  [lng]="order.longitud"
+                  [readonly]="true"
+                  heightClass="h-44"
+                />
+              </div>
+            }
+          </div>
+        }
 
         <div hlmTableContainer class="rounded-md border border-border">
           <table hlmTable>

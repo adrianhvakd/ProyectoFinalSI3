@@ -37,8 +37,19 @@ import {
   ComputedSummaryItem,
   DynamicReportConfig,
   ReportColumn,
+  ReportFilterDef,
 } from './dynamic-report.models';
 import { ReportExportService } from './report-export.service';
+
+function omitRecordKeys<V>(record: Record<string, V>, keysToRemove: Set<string>): Record<string, V> {
+  const next: Record<string, V> = {};
+  for (const [k, v] of Object.entries(record)) {
+    if (!keysToRemove.has(k)) {
+      next[k] = v;
+    }
+  }
+  return next;
+}
 
 @Component({
   selector: 'app-dynamic-report-drawer',
@@ -107,6 +118,7 @@ export class DynamicReportDrawerComponent<T> {
   readonly filteredRows = computed<T[]>(() => {
     const cfg = this.config();
     const rows = this.data();
+    const visibleSet = new Set(this.selectedColumnKeys());
     const query = sanitizeText(this.searchText()).toLowerCase();
     const selects = this.selectFilterValues();
     const booleans = this.booleanFilterValues();
@@ -125,6 +137,10 @@ export class DynamicReportDrawerComponent<T> {
       }
 
       for (const filter of cfg.filters) {
+        if (!visibleSet.has(filter.columnKey)) {
+          continue;
+        }
+
         if (filter.type === 'select') {
           const val = selects[filter.key] ?? 'all';
           if (val !== 'all') {
@@ -186,6 +202,7 @@ export class DynamicReportDrawerComponent<T> {
 
   readonly appliedFiltersSummary = computed<AppliedFilterSummary[]>(() => {
     const cfg = this.config();
+    const visibleSet = new Set(this.selectedColumnKeys());
     const summary: AppliedFilterSummary[] = [];
     const query = sanitizeText(this.searchText());
     if (query) {
@@ -197,6 +214,10 @@ export class DynamicReportDrawerComponent<T> {
     const ranges = this.dateRangeValues();
 
     for (const filter of cfg.filters) {
+      if (!visibleSet.has(filter.columnKey)) {
+        continue;
+      }
+
       if (filter.type === 'select') {
         const val = selects[filter.key] ?? 'all';
         if (val !== 'all') {
@@ -230,6 +251,10 @@ export class DynamicReportDrawerComponent<T> {
     return this.selectedColumnKeys().includes(key);
   }
 
+  isFilterEnabled(filter: ReportFilterDef<T>): boolean {
+    return this.selectedColumnKeys().includes(filter.columnKey);
+  }
+
   toggleColumn(key: string, checked: boolean): void {
     const current = this.selectedColumnKeys();
     if (!checked && current.length <= 1) {
@@ -244,7 +269,9 @@ export class DynamicReportDrawerComponent<T> {
         this.selectedColumnKeys.set(next);
       }
     } else {
-      this.selectedColumnKeys.set(current.filter((k) => k !== key));
+      const next = current.filter((k) => k !== key);
+      this.selectedColumnKeys.set(next);
+      this.pruneDisabledFilters(next);
     }
   }
 
@@ -256,9 +283,9 @@ export class DynamicReportDrawerComponent<T> {
     const defaults = cfg.columns
       .filter((c) => c.defaultVisible !== false)
       .map((c) => c.key);
-    this.selectedColumnKeys.set(
-      defaults.length > 0 ? defaults : cfg.columns.map((c) => c.key),
-    );
+    const next = defaults.length > 0 ? defaults : cfg.columns.map((c) => c.key);
+    this.selectedColumnKeys.set(next);
+    this.pruneDisabledFilters(next, cfg);
   }
 
   onSearchChange(value: string): void {
@@ -266,22 +293,31 @@ export class DynamicReportDrawerComponent<T> {
     this.previewPage.set(1);
   }
 
-  onSelectFilterChange(key: string, value: string | null | undefined): void {
-    this.selectFilterValues.update((prev) => ({ ...prev, [key]: value || 'all' }));
+  onSelectFilterChange(filter: ReportFilterDef<T>, value: string | null | undefined): void {
+    if (!this.isFilterEnabled(filter)) {
+      return;
+    }
+    this.selectFilterValues.update((prev) => ({ ...prev, [filter.key]: value || 'all' }));
     this.previewPage.set(1);
   }
 
-  onBooleanFilterChange(key: string, value: string | null | undefined): void {
-    this.booleanFilterValues.update((prev) => ({ ...prev, [key]: value || 'all' }));
+  onBooleanFilterChange(filter: ReportFilterDef<T>, value: string | null | undefined): void {
+    if (!this.isFilterEnabled(filter)) {
+      return;
+    }
+    this.booleanFilterValues.update((prev) => ({ ...prev, [filter.key]: value || 'all' }));
     this.previewPage.set(1);
   }
 
-  onDateRangeChange(key: string, bound: 'from' | 'to', value: string): void {
+  onDateRangeChange(filter: ReportFilterDef<T>, bound: 'from' | 'to', value: string): void {
+    if (!this.isFilterEnabled(filter)) {
+      return;
+    }
     this.dateRangeValues.update((prev) => {
-      const existing = prev[key] ?? { from: '', to: '' };
+      const existing = prev[filter.key] ?? { from: '', to: '' };
       return {
         ...prev,
-        [key]: {
+        [filter.key]: {
           ...existing,
           [bound]: value,
         },
@@ -290,8 +326,11 @@ export class DynamicReportDrawerComponent<T> {
     this.previewPage.set(1);
   }
 
-  getDateBound(key: string, bound: 'from' | 'to'): string {
-    return this.dateRangeValues()[key]?.[bound] ?? '';
+  getDateBound(filter: ReportFilterDef<T>, bound: 'from' | 'to'): string {
+    if (!this.isFilterEnabled(filter)) {
+      return '';
+    }
+    return this.dateRangeValues()[filter.key]?.[bound] ?? '';
   }
 
   clearFilters(): void {
@@ -369,5 +408,23 @@ export class DynamicReportDrawerComponent<T> {
     if (!this.exportingFormat()) {
       this.openChange.emit(false);
     }
+  }
+
+  private pruneDisabledFilters(
+    visibleKeys: readonly string[],
+    cfg = this.config(),
+  ): void {
+    const visibleSet = new Set(visibleKeys);
+    const disabledFilterKeys = new Set(
+      cfg.filters.filter((f) => !visibleSet.has(f.columnKey)).map((f) => f.key),
+    );
+    if (disabledFilterKeys.size === 0) {
+      return;
+    }
+
+    this.selectFilterValues.update((prev) => omitRecordKeys(prev, disabledFilterKeys));
+    this.booleanFilterValues.update((prev) => omitRecordKeys(prev, disabledFilterKeys));
+    this.dateRangeValues.update((prev) => omitRecordKeys(prev, disabledFilterKeys));
+    this.previewPage.set(1);
   }
 }

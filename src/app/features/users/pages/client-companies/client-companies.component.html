@@ -3,20 +3,10 @@
     <div>
       <h1 class="text-2xl font-semibold text-foreground tracking-tight">Empresas Clientes</h1>
       <p class="text-sm text-muted-foreground">
-        Alta atómica de clientes mayoristas con credenciales de acceso y dirección de despacho.
+        Alta atómica de clientes mayoristas con credenciales de acceso y dirección registrada.
       </p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        hlmBtn
-        variant="outline"
-        [disabled]="loading()"
-        (click)="reportOpen.set(true)"
-      >
-        <ng-icon name="lucideFileBarChart2" />
-        <span>Generar Reporte</span>
-      </button>
       <button type="button" hlmBtn (click)="openCreateDialog()">
         <ng-icon name="lucidePlus" />
         <span>Nueva Empresa Cliente</span>
@@ -102,7 +92,7 @@
               <th hlmTh>Razón Social</th>
               <th hlmTh>Contacto / Acceso</th>
               <th hlmTh>Teléfono</th>
-              <th hlmTh>Dirección de Entrega</th>
+              <th hlmTh>Dirección</th>
               <th hlmTh>Estado</th>
               <th hlmTh class="text-end">Acciones</th>
             </tr>
@@ -123,7 +113,7 @@
                 </td>
                 <td hlmTd class="tabular-nums text-muted-foreground">{{ item.telefono }}</td>
                 <td hlmTd class="max-w-xs truncate text-muted-foreground">
-                  {{ item.direccion_entrega }}
+                  {{ item.direccion }}
                 </td>
                 <td hlmTd>
                   <app-status-badge
@@ -236,20 +226,18 @@
       </div>
 
       <div hlmField>
-        <label hlmFieldLabel for="cli-dir">Dirección de entrega predeterminada</label>
+        <label hlmFieldLabel for="cli-dir">Dirección</label>
         <textarea
           hlmTextarea
           id="cli-dir"
           rows="2"
-          formControlName="direccion_entrega"
-          placeholder="Parque Industrial Mza. 14, Nave 3, Santa Cruz"
+          formControlName="direccion"
+          placeholder="Parque Industrial Mza. 14, Nave 3, Potosí"
         ></textarea>
-        @if (createForm.controls.direccion_entrega.hasError('required')) {
-          <hlm-field-error validator="required">
-            La dirección de entrega es obligatoria.
-          </hlm-field-error>
+        @if (createForm.controls.direccion.hasError('required')) {
+          <hlm-field-error validator="required">La dirección es obligatoria.</hlm-field-error>
         }
-        @if (createForm.controls.direccion_entrega.hasError('minlength')) {
+        @if (createForm.controls.direccion.hasError('minlength')) {
           <hlm-field-error validator="minlength">
             Ingrese una dirección detallada (mínimo 5 caracteres).
           </hlm-field-error>
@@ -353,7 +341,7 @@
     <hlm-dialog-header>
       <h3 hlmDialogTitle>Editar Empresa Cliente</h3>
       <p hlmDialogDescription>
-        Modifique los datos fiscales, teléfono o dirección de entrega del cliente mayorista.
+        Modifique los datos fiscales, teléfono o dirección del cliente mayorista.
       </p>
     </hlm-dialog-header>
 
@@ -408,17 +396,17 @@
         </div>
 
         <div hlmField>
-          <label hlmFieldLabel for="edit-cli-dir">Dirección de entrega</label>
+          <label hlmFieldLabel for="edit-cli-dir">Dirección</label>
           <textarea
             hlmTextarea
             id="edit-cli-dir"
             rows="2"
-            formControlName="direccion_entrega"
+            formControlName="direccion"
           ></textarea>
-          @if (editForm.controls.direccion_entrega.hasError('required')) {
+          @if (editForm.controls.direccion.hasError('required')) {
             <hlm-field-error validator="required">La dirección es obligatoria.</hlm-field-error>
           }
-          @if (editForm.controls.direccion_entrega.hasError('minlength')) {
+          @if (editForm.controls.direccion.hasError('minlength')) {
             <hlm-field-error validator="minlength">Mínimo 5 caracteres.</hlm-field-error>
           }
         </div>
@@ -464,12 +452,4 @@
   [loading]="toggling()"
   (confirmed)="confirmToggleActive()"
   (cancelled)="confirmTarget.set(null)"
-/>
-
-<app-dynamic-report-drawer
-  [open]="reportOpen()"
-  [config]="reportConfig"
-  [data]="items()"
-  [loading]="loading()"
-  (openChange)="reportOpen.set($event)"
 />

@@ -141,3 +141,7 @@
     scroll-behavior: auto !important;
   }
 }
+
+.leaflet-container {
+  font-family: var(--font-sans);
+}

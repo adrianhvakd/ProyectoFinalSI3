@@ -5,7 +5,6 @@ import {
   lucideBriefcase,
   lucideEye,
   lucideEyeOff,
-  lucideFileBarChart2,
   lucidePencil,
   lucidePlus,
   lucidePower,
@@ -31,8 +30,6 @@ import {
 } from '../../../../core/models/domain.models';
 import { translateSupabaseError } from '../../../../core/utils/supabase-error.util';
 import { ConfirmDialogComponent } from '../../../../shared/components/confirm-dialog/confirm-dialog.component';
-import { DynamicReportDrawerComponent } from '../../../../shared/components/dynamic-report/dynamic-report-drawer.component';
-import { DynamicReportConfig } from '../../../../shared/components/dynamic-report/dynamic-report.models';
 import { StatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge.component';
 import { TablePaginationComponent } from '../../../../shared/components/table-pagination/table-pagination.component';
 import {
@@ -69,7 +66,6 @@ import { ClientCompaniesService } from '../../services/client-companies.service'
     ConfirmDialogComponent,
     StatusBadgeComponent,
     TablePaginationComponent,
-    DynamicReportDrawerComponent,
   ],
   providers: [
     provideIcons({
@@ -78,7 +74,6 @@ import { ClientCompaniesService } from '../../services/client-companies.service'
       lucidePencil,
       lucidePower,
       lucideSearch,
-      lucideFileBarChart2,
       lucideRefreshCw,
       lucideEye,
       lucideEyeOff,
@@ -112,7 +107,6 @@ export class ClientCompaniesComponent implements OnInit {
     const target = this.confirmTarget();
     return target ? (this.getUsuario(target)?.activo ?? false) : false;
   });
-  readonly reportOpen = signal<boolean>(false);
 
   readonly createForm = this.fb.group({
     nombre_completo: ['', [trimmedRequiredValidator(), trimmedMinLengthValidator(3)]],
@@ -121,7 +115,7 @@ export class ClientCompaniesComponent implements OnInit {
     nit: ['', [trimmedRequiredValidator(), nitValidator()]],
     razon_social: ['', [trimmedRequiredValidator(), trimmedMinLengthValidator(3)]],
     telefono: ['', [trimmedRequiredValidator(), phoneValidator()]],
-    direccion_entrega: ['', [trimmedRequiredValidator(), trimmedMinLengthValidator(5)]],
+    direccion: ['', [trimmedRequiredValidator(), trimmedMinLengthValidator(5)]],
   });
 
   readonly editForm = this.fb.group({
@@ -129,7 +123,7 @@ export class ClientCompaniesComponent implements OnInit {
     nit: ['', [trimmedRequiredValidator(), nitValidator()]],
     razon_social: ['', [trimmedRequiredValidator(), trimmedMinLengthValidator(3)]],
     telefono: ['', [trimmedRequiredValidator(), phoneValidator()]],
-    direccion_entrega: ['', [trimmedRequiredValidator(), trimmedMinLengthValidator(5)]],
+    direccion: ['', [trimmedRequiredValidator(), trimmedMinLengthValidator(5)]],
   });
 
   readonly filteredItems = computed(() => {
@@ -152,7 +146,7 @@ export class ClientCompaniesComponent implements OnInit {
         item.razon_social.toLowerCase().includes(q) ||
         item.nit.toLowerCase().includes(q) ||
         item.telefono.toLowerCase().includes(q) ||
-        item.direccion_entrega.toLowerCase().includes(q) ||
+        item.direccion.toLowerCase().includes(q) ||
         (usr?.nombre_completo.toLowerCase().includes(q) ?? false) ||
         (usr?.email.toLowerCase().includes(q) ?? false)
       );
@@ -167,63 +161,6 @@ export class ClientCompaniesComponent implements OnInit {
     const start = (current - 1) * size;
     return list.slice(start, start + size);
   });
-
-  readonly reportConfig: DynamicReportConfig<EmpresaClienteConUsuario> = {
-    title: 'Reporte de Empresas Clientes',
-    subtitle: 'Clientes mayoristas registrados, datos fiscales, dirección de entrega y estado de cuenta.',
-    filenamePrefix: 'empresas-clientes',
-    searchFields: [
-      (r) => r.razon_social,
-      (r) => r.nit,
-      (r) => unwrapOne(r.usuario)?.nombre_completo,
-      (r) => unwrapOne(r.usuario)?.email,
-      (r) => r.direccion_entrega,
-    ],
-    columns: [
-      { key: 'razon_social', label: 'Razón Social', getValue: (r) => r.razon_social },
-      { key: 'nit', label: 'NIT', getValue: (r) => r.nit },
-      {
-        key: 'contacto',
-        label: 'Representante',
-        getValue: (r) => unwrapOne(r.usuario)?.nombre_completo ?? '—',
-      },
-      {
-        key: 'email',
-        label: 'Correo Acceso',
-        getValue: (r) => unwrapOne(r.usuario)?.email ?? '—',
-      },
-      { key: 'telefono', label: 'Teléfono', getValue: (r) => r.telefono },
-      { key: 'direccion_entrega', label: 'Dirección de Entrega', getValue: (r) => r.direccion_entrega },
-      {
-        key: 'activo',
-        label: 'Estado',
-        getValue: (r) => unwrapOne(r.usuario)?.activo ?? false,
-        format: (r) => (unwrapOne(r.usuario)?.activo ? 'Activo' : 'Inactivo'),
-      },
-    ],
-    filters: [
-      {
-        key: 'activo',
-        label: 'Estado de acceso',
-        type: 'boolean',
-        trueLabel: 'Activos',
-        falseLabel: 'Inactivos',
-        accessor: (r) => unwrapOne(r.usuario)?.activo ?? false,
-      },
-    ],
-    summaryCards: [
-      {
-        label: 'Empresas activas',
-        compute: (rows) =>
-          String(rows.filter((r) => unwrapOne(r.usuario)?.activo === true).length),
-      },
-      {
-        label: 'Empresas inactivas',
-        compute: (rows) =>
-          String(rows.filter((r) => unwrapOne(r.usuario)?.activo !== true).length),
-      },
-    ],
-  };
 
   ngOnInit(): void {
     void this.loadItems();
@@ -257,7 +194,7 @@ export class ClientCompaniesComponent implements OnInit {
       nit: '',
       razon_social: '',
       telefono: '',
-      direccion_entrega: '',
+      direccion: '',
     });
     this.createDialogOpen.set(true);
   }
@@ -284,7 +221,7 @@ export class ClientCompaniesComponent implements OnInit {
         nit: sanitizeNit(raw.nit),
         razon_social: sanitizeText(raw.razon_social),
         telefono: sanitizePhone(raw.telefono),
-        direccion_entrega: sanitizeText(raw.direccion_entrega),
+        direccion: sanitizeText(raw.direccion),
       });
       toast.success(`Empresa cliente "${sanitizeText(raw.razon_social)}" registrada.`);
       this.createDialogOpen.set(false);
@@ -304,7 +241,7 @@ export class ClientCompaniesComponent implements OnInit {
       nit: item.nit,
       razon_social: item.razon_social,
       telefono: item.telefono,
-      direccion_entrega: item.direccion_entrega,
+      direccion: item.direccion,
     });
     this.editDialogOpen.set(true);
   }
@@ -333,7 +270,7 @@ export class ClientCompaniesComponent implements OnInit {
         nit: sanitizeNit(raw.nit),
         razon_social: sanitizeText(raw.razon_social),
         telefono: sanitizePhone(raw.telefono),
-        direccion_entrega: sanitizeText(raw.direccion_entrega),
+        direccion: sanitizeText(raw.direccion),
       });
       toast.success('Empresa cliente actualizada correctamente.');
       this.editDialogOpen.set(false);

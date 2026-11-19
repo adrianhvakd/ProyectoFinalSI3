@@ -1,25 +1,26 @@
-import { inject } from '@angular/core';
-import { CanActivateFn, Router, Routes } from '@angular/router';
+import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
-import { AuthService } from './core/services/auth.service';
-
-const roleRedirectGuard: CanActivateFn = async () => {
-  const authService = inject(AuthService);
-  const router = inject(Router);
-  const user = await authService.ensureSessionLoaded();
-  if (!user) {
-    return router.parseUrl('/login');
-  }
-  return router.parseUrl(authService.getDefaultRouteForRole(user.rol));
-};
 
 export const routes: Routes = [
+  {
+    path: '',
+    pathMatch: 'full',
+    canActivate: [guestGuard],
+    loadComponent: () =>
+      import('./features/public/landing/landing.component').then((m) => m.LandingComponent),
+  },
   {
     path: 'login',
     canActivate: [guestGuard],
     loadComponent: () =>
       import('./features/auth/login/login.component').then((m) => m.LoginComponent),
+  },
+  {
+    path: 'register',
+    canActivate: [guestGuard],
+    loadComponent: () =>
+      import('./features/auth/register/register.component').then((m) => m.RegisterComponent),
   },
   {
     path: '',
@@ -69,19 +70,13 @@ export const routes: Routes = [
       },
       {
         path: 'warehouse/reception',
-        canActivate: [roleGuard(['Encargado de Almacén'])],
-        loadComponent: () =>
-          import('./features/warehouse/pages/lot-reception/lot-reception.component').then(
-            (m) => m.LotReceptionComponent,
-          ),
+        redirectTo: 'warehouse/inventory',
+        pathMatch: 'full',
       },
       {
         path: 'warehouse/quality-control',
-        canActivate: [roleGuard(['Encargado de Almacén'])],
-        loadComponent: () =>
-          import('./features/warehouse/pages/quality-control/quality-control.component').then(
-            (m) => m.QualityControlComponent,
-          ),
+        redirectTo: 'warehouse/inventory',
+        pathMatch: 'full',
       },
       {
         path: 'orders/catalog',
@@ -108,15 +103,19 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'reports',
+        canActivate: [
+          roleGuard(['Administrador', 'Encargado de Almacén', 'Encargado de Ventas y Caja']),
+        ],
+        loadComponent: () =>
+          import('./features/reports/pages/reports-center/reports-center.component').then(
+            (m) => m.ReportsCenterComponent,
+          ),
+      },
+      {
         path: 'account',
         loadComponent: () =>
           import('./features/auth/account/account.component').then((m) => m.AccountComponent),
-      },
-      {
-        path: '',
-        pathMatch: 'full',
-        canActivate: [roleRedirectGuard],
-        children: [],
       },
     ],
   },

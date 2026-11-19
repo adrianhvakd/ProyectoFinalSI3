@@ -302,28 +302,82 @@
             </div>
 
             @if (selectedDelivery() === 'Envío a dirección en camión') {
-              <div hlmField>
-                <label hlmFieldLabel for="order-dir">
-                  <ng-icon name="lucideMapPin" class="inline text-xs me-1" />
-                  Confirmar dirección de destino *
-                </label>
-                <textarea
-                  hlmTextarea
-                  id="order-dir"
-                  rows="2"
-                  formControlName="direccion_destino"
-                  placeholder="Confirme la dirección exacta para el envío en camión..."
-                ></textarea>
-                @if (checkoutForm.controls.direccion_destino.hasError('required')) {
-                  <hlm-field-error validator="required">
-                    Debe confirmar la dirección de entrega para envío en camión.
-                  </hlm-field-error>
-                }
-                @if (checkoutForm.controls.direccion_destino.hasError('minlength')) {
-                  <hlm-field-error validator="minlength">
-                    Ingrese una dirección detallada (mínimo 5 caracteres).
-                  </hlm-field-error>
-                }
+              <div class="rounded-lg border border-border bg-muted/20 p-3.5 flex flex-col gap-3">
+                <div hlmField>
+                  <label hlmFieldLabel for="order-dir">
+                    <ng-icon name="lucideMapPin" class="inline text-xs me-1" />
+                    Dirección de entrega *
+                  </label>
+                  <textarea
+                    hlmTextarea
+                    id="order-dir"
+                    rows="2"
+                    formControlName="direccion_destino"
+                    placeholder="Confirme la dirección exacta para el envío en camión..."
+                  ></textarea>
+                  @if (checkoutForm.controls.direccion_destino.hasError('required')) {
+                    <hlm-field-error validator="required">
+                      Debe confirmar la dirección de entrega para envío en camión.
+                    </hlm-field-error>
+                  }
+                  @if (checkoutForm.controls.direccion_destino.hasError('minlength')) {
+                    <hlm-field-error validator="minlength">
+                      Ingrese una dirección detallada (mínimo 5 caracteres).
+                    </hlm-field-error>
+                  }
+                </div>
+
+                <div hlmField>
+                  <label hlmFieldLabel for="order-celular">
+                    <ng-icon name="lucidePhone" class="inline text-xs me-1" />
+                    Celular / Teléfono de contacto para entrega *
+                  </label>
+                  <input
+                    hlmInput
+                    id="order-celular"
+                    type="tel"
+                    formControlName="celular_contacto"
+                    placeholder="+591 70012345"
+                    class="tabular-nums"
+                  />
+                  @if (checkoutForm.controls.celular_contacto.hasError('required')) {
+                    <hlm-field-error validator="required">
+                      El número celular de contacto es obligatorio para coordinar la entrega.
+                    </hlm-field-error>
+                  }
+                  @if (checkoutForm.controls.celular_contacto.hasError('phoneFormat')) {
+                    <hlm-field-error validator="phoneFormat">
+                      Ingrese un formato telefónico válido (7 a 15 dígitos).
+                    </hlm-field-error>
+                  }
+                </div>
+
+                <div class="flex flex-col gap-2">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <span class="text-xs font-medium text-foreground">
+                      Ubicación exacta de entrega (OpenStreetMap) *
+                    </span>
+                    @if (selectedLat() !== null && selectedLng() !== null) {
+                      <span class="text-[11px] font-mono text-muted-foreground tabular-nums">
+                        Lat: {{ selectedLat() | number: '1.5-5' }} &middot; Lng:
+                        {{ selectedLng() | number: '1.5-5' }}
+                      </span>
+                    }
+                  </div>
+
+                  <app-location-picker-map
+                    [lat]="selectedLat()"
+                    [lng]="selectedLng()"
+                    heightClass="h-56"
+                    (locationSelected)="onLocationSelected($event)"
+                  />
+
+                  @if (locationError()) {
+                    <p class="text-xs font-medium text-destructive" role="alert">
+                      {{ locationError() }}
+                    </p>
+                  }
+                </div>
               </div>
             }
 

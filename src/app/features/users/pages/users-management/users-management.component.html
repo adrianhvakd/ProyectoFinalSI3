@@ -5,20 +5,10 @@
         Usuarios, Roles y Camiones
       </h1>
       <p class="text-sm text-muted-foreground">
-        Gestione cuentas operativas internas, asignación de roles y unidades de transporte.
+        Gestione cuentas operativas internas, cambios de rol y unidades de transporte.
       </p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        hlmBtn
-        variant="outline"
-        [disabled]="loading()"
-        (click)="reportOpen.set(true)"
-      >
-        <ng-icon name="lucideFileBarChart2" />
-        <span>Generar Reporte</span>
-      </button>
       <button type="button" hlmBtn (click)="openCreateDialog()">
         <ng-icon name="lucidePlus" />
         <span>Nuevo Usuario</span>
@@ -40,7 +30,7 @@
         type="text"
         [value]="searchTerm()"
         (input)="onSearch($any($event.target).value)"
-        placeholder="Buscar por nombre, correo o placa..."
+        placeholder="Buscar por nombre, correo, placa o empresa..."
         aria-label="Buscar usuario"
         class="pl-9"
       />
@@ -115,7 +105,7 @@
               <th hlmTh>Nombre Completo</th>
               <th hlmTh>Correo Electrónico</th>
               <th hlmTh>Rol</th>
-              <th hlmTh>Unidad / Camión</th>
+              <th hlmTh>Unidad / Empresa</th>
               <th hlmTh>Estado</th>
               <th hlmTh class="text-end">Acciones</th>
             </tr>
@@ -140,6 +130,16 @@
                         [status]="camion.disponible ? 'Disponible' : 'Ocupado'"
                         kind="boolean"
                       />
+                    </div>
+                  } @else if (getEmpresa(item); as empresa) {
+                    <div class="flex items-center gap-2 text-xs">
+                      <ng-icon name="lucideBriefcase" class="text-primary text-sm shrink-0" />
+                      <span class="font-medium text-foreground truncate max-w-44">
+                        {{ empresa.razon_social }}
+                      </span>
+                      <span class="font-mono text-muted-foreground tabular-nums">
+                        (NIT {{ empresa.nit }})
+                      </span>
                     </div>
                   } @else {
                     <span class="text-muted-foreground">—</span>
@@ -241,7 +241,12 @@
 
         <div hlmField>
           <label hlmFieldLabel for="usr-rol">Rol operativo</label>
-          <hlm-native-select id="usr-rol" class="w-full" selectClass="w-full" formControlName="rol">
+          <hlm-native-select
+            selectId="usr-rol"
+            class="w-full"
+            selectClass="w-full"
+            formControlName="rol"
+          >
             @for (role of internalRoles; track role) {
               <option hlmNativeSelectOption [value]="role">{{ role }}</option>
             }
@@ -360,44 +365,68 @@
   </hlm-dialog-content>
 </hlm-dialog>
 
-<!-- Dialog Edición de Usuario -->
+<!-- Dialog Edición y Cambio de Rol de Usuario -->
 <hlm-dialog [state]="editDialogOpen() ? 'open' : 'closed'" (closed)="closeEditDialog()">
-  <hlm-dialog-content *hlmDialogPortal class="sm:max-w-lg">
+  <hlm-dialog-content *hlmDialogPortal class="sm:max-w-xl max-h-[90dvh] overflow-y-auto">
     <hlm-dialog-header>
-      <h3 hlmDialogTitle>Editar Usuario</h3>
+      <h3 hlmDialogTitle>Editar Usuario y Rol Operativo</h3>
       <p hlmDialogDescription>
-        Actualice el nombre operativo{{
-          editingItem()?.rol === 'Camionero' ? ' y la configuración del camión asignado' : ''
-        }}.
+        Actualice el nombre, reasigne el rol operativo o complete el perfil asociado al nuevo rol.
       </p>
     </hlm-dialog-header>
 
     @if (editingItem(); as target) {
       <form [formGroup]="editForm" (ngSubmit)="onEditSubmit()" class="flex flex-col gap-4 pt-2">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs rounded-md border border-border bg-muted/40 p-3">
+        <div class="rounded-md border border-border bg-muted/40 p-3 text-xs flex items-center justify-between gap-2">
           <div>
-            <span class="text-muted-foreground block">Correo</span>
+            <span class="text-muted-foreground block">Correo electrónico</span>
             <span class="font-medium text-foreground">{{ target.email }}</span>
           </div>
-          <div>
-            <span class="text-muted-foreground block">Rol asignado</span>
-            <span class="font-medium text-foreground">{{ target.rol }}</span>
+          <span hlmBadge variant="secondary">Rol actual: {{ target.rol }}</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div hlmField>
+            <label hlmFieldLabel for="edit-usr-nombre">Nombre completo</label>
+            <input hlmInput id="edit-usr-nombre" formControlName="nombre_completo" />
+            @if (editForm.controls.nombre_completo.hasError('required')) {
+              <hlm-field-error validator="required">El nombre es obligatorio.</hlm-field-error>
+            }
+            @if (editForm.controls.nombre_completo.hasError('minlength')) {
+              <hlm-field-error validator="minlength">Mínimo 3 caracteres.</hlm-field-error>
+            }
+          </div>
+
+          <div hlmField>
+            <label hlmFieldLabel for="edit-usr-rol">Rol asignado</label>
+            <hlm-native-select
+              selectId="edit-usr-rol"
+              class="w-full"
+              selectClass="w-full"
+              formControlName="rol"
+            >
+              @for (role of allRoles; track role) {
+                <option hlmNativeSelectOption [value]="role">{{ role }}</option>
+              }
+            </hlm-native-select>
+            @if (isEditingSelf()) {
+              <p hlmFieldDescription>No puede modificar su propio rol en sesión activa.</p>
+            }
           </div>
         </div>
 
-        <div hlmField>
-          <label hlmFieldLabel for="edit-usr-nombre">Nombre completo</label>
-          <input hlmInput id="edit-usr-nombre" formControlName="nombre_completo" />
-          @if (editForm.controls.nombre_completo.hasError('required')) {
-            <hlm-field-error validator="required">El nombre es obligatorio.</hlm-field-error>
-          }
-          @if (editForm.controls.nombre_completo.hasError('minlength')) {
-            <hlm-field-error validator="minlength">Mínimo 3 caracteres.</hlm-field-error>
-          }
-        </div>
-
-        @if (target.rol === 'Camionero') {
+        @if (selectedEditRole() === 'Camionero') {
           <div class="rounded-lg border border-border bg-muted/30 p-4 flex flex-col gap-4">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <ng-icon name="lucideTruck" class="text-primary" />
+                <span>Perfil de Camionero</span>
+              </div>
+              @if (!getCamion(target)) {
+                <span hlmBadge variant="outline">Se creará registro de camión</span>
+              }
+            </div>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div hlmField>
                 <label hlmFieldLabel for="edit-usr-placa">Placa vehicular</label>
@@ -405,6 +434,7 @@
                   hlmInput
                   id="edit-usr-placa"
                   formControlName="placa"
+                  placeholder="4582-XTR"
                   class="uppercase font-mono"
                 />
                 @if (editForm.controls.placa.hasError('required')) {
@@ -426,6 +456,9 @@
                   formControlName="capacidad_kg"
                   class="tabular-nums"
                 />
+                @if (editForm.controls.capacidad_kg.hasError('required')) {
+                  <hlm-field-error validator="required">La capacidad es obligatoria.</hlm-field-error>
+                }
                 @if (editForm.controls.capacidad_kg.hasError('positiveDecimal')) {
                   <hlm-field-error validator="positiveDecimal">
                     Debe ser mayor a 0 kg.
@@ -439,6 +472,89 @@
                 Unidad disponible para ruta
               </label>
               <hlm-switch inputId="edit-usr-disp" formControlName="disponible" />
+            </div>
+          </div>
+        } @else if (selectedEditRole() === 'Empresa Cliente') {
+          <div class="rounded-lg border border-border bg-muted/30 p-4 flex flex-col gap-4">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <ng-icon name="lucideBriefcase" class="text-primary" />
+                <span>Ficha de Empresa Cliente</span>
+              </div>
+              @if (!getEmpresa(target)) {
+                <span hlmBadge variant="outline">Se creará ficha de empresa</span>
+              }
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div hlmField>
+                <label hlmFieldLabel for="edit-usr-nit">NIT</label>
+                <input
+                  hlmInput
+                  id="edit-usr-nit"
+                  formControlName="nit"
+                  placeholder="1028374021"
+                  class="font-mono uppercase"
+                />
+                @if (editForm.controls.nit.hasError('required')) {
+                  <hlm-field-error validator="required">El NIT es obligatorio.</hlm-field-error>
+                }
+                @if (editForm.controls.nit.hasError('nitFormat')) {
+                  <hlm-field-error validator="nitFormat">Formato de NIT inválido.</hlm-field-error>
+                }
+              </div>
+
+              <div hlmField>
+                <label hlmFieldLabel for="edit-usr-tel">Teléfono</label>
+                <input
+                  hlmInput
+                  id="edit-usr-tel"
+                  formControlName="telefono"
+                  placeholder="+591 70012345"
+                  class="tabular-nums"
+                />
+                @if (editForm.controls.telefono.hasError('required')) {
+                  <hlm-field-error validator="required">El teléfono es obligatorio.</hlm-field-error>
+                }
+                @if (editForm.controls.telefono.hasError('phoneFormat')) {
+                  <hlm-field-error validator="phoneFormat">Teléfono inválido.</hlm-field-error>
+                }
+              </div>
+            </div>
+
+            <div hlmField>
+              <label hlmFieldLabel for="edit-usr-razon">Razón social</label>
+              <input
+                hlmInput
+                id="edit-usr-razon"
+                formControlName="razon_social"
+                placeholder="Industrias Alimentarias del Sur S.R.L."
+              />
+              @if (editForm.controls.razon_social.hasError('required')) {
+                <hlm-field-error validator="required">
+                  La razón social es obligatoria.
+                </hlm-field-error>
+              }
+              @if (editForm.controls.razon_social.hasError('minlength')) {
+                <hlm-field-error validator="minlength">Mínimo 3 caracteres.</hlm-field-error>
+              }
+            </div>
+
+            <div hlmField>
+              <label hlmFieldLabel for="edit-usr-dir">Dirección</label>
+              <textarea
+                hlmTextarea
+                id="edit-usr-dir"
+                rows="2"
+                formControlName="direccion"
+                placeholder="Av. Industrial 450, Zona Parque Industrial"
+              ></textarea>
+              @if (editForm.controls.direccion.hasError('required')) {
+                <hlm-field-error validator="required">La dirección es obligatoria.</hlm-field-error>
+              }
+              @if (editForm.controls.direccion.hasError('minlength')) {
+                <hlm-field-error validator="minlength">Mínimo 5 caracteres.</hlm-field-error>
+              }
             </div>
           </div>
         }
@@ -468,6 +584,16 @@
 </hlm-dialog>
 
 <app-confirm-dialog
+  [open]="roleChangeConfirmOpen()"
+  title="¿Confirmar cambio de rol operativo?"
+  [description]="pendingRoleChangeSummary()"
+  confirmLabel="Sí, cambiar rol y guardar"
+  [loading]="saving()"
+  (confirmed)="executeEditSave()"
+  (cancelled)="roleChangeConfirmOpen.set(false)"
+/>
+
+<app-confirm-dialog
   [open]="confirmTarget() !== null"
   [title]="confirmTarget()?.activo ? '¿Desactivar usuario?' : '¿Activar usuario?'"
   [description]="
@@ -482,12 +608,4 @@
   [loading]="toggling()"
   (confirmed)="confirmToggleActive()"
   (cancelled)="confirmTarget.set(null)"
-/>
-
-<app-dynamic-report-drawer
-  [open]="reportOpen()"
-  [config]="reportConfig"
-  [data]="items()"
-  [loading]="loading()"
-  (openChange)="reportOpen.set($event)"
 />
